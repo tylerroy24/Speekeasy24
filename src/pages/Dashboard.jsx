@@ -3,12 +3,11 @@ import Sidebar from '../components/Sidebar'
 import { Button, Card, Badge, Waveform, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
-import { useSEO } from '../hooks/useSEO'
-import { useAuth } from '../context/AuthContext'
 import { useCallEvents } from '../hooks/useCallEvents'
 import {
   Phone, PhoneCall, PhoneIncoming, PhoneOff, CheckCircle,
   Clock, Activity, Bot, Zap, TrendingUp, X, ArrowUpRight,
+  FileSpreadsheet, Upload, Play, Pause,
 } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -106,123 +105,197 @@ function FeedItem({ call }) {
   )
 }
 
-// ── Quick Dial Panel ───────────────────────────────────────
+// ── Combined Outbound Panel ────────────────────────────────
+async function loadXLSX() {
+  if (window.XLSX) return window.XLSX
+  await new Promise((resolve, reject) => {
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
+    s.onload = resolve; s.onerror = reject
+    document.head.appendChild(s)
+  })
+  return window.XLSX
+}
+
+async function parseContactFile(file) {
+  const XLSX = await loadXLSX()
+  const isExcel = /\.(xlsx|xls|xlsm|ods)$/i.test(file.name)
+  let rows = []
+  if (isExcel) {
+    const buf = await file.arrayBuffer()
+    const wb = XLSX.read(buf, { type: 'array' })
+    rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { header: 1, defval: '' })
+  } else {
+    const text = await file.text()
+    const delim = text.includes('\t') ? '\t' : ','
+    rows = text.trim().split(/\r?\n/).map(l => l.split(delim).map(c => c.trim().replace(/^"|"$/g, '')))
+  }
+  if (!rows.length) return []
+  const first = rows[0].map(c => String(c).trim())
+  const hasHeader = first.some(c => /phone|number|mobile|cell|tel/i.test(c))
+  const dataRows = hasHeader ? rows.slice(1) : rows
+  const phoneCol = hasHeader ? first.findIndex(c => /phone|number|mobile|cell|tel/i.test(c)) : 0
+  const nameCol = hasHeader ? first.findIndex(c => /name|first|contact/i.test(c)) : -1
+  const results = []
+  dataRows.forEach((cols, i) => {
+    if (!cols?.length) return
+    const raw = String(cols[phoneCol >= 0 ? phoneCol : 0] || '').trim()
+    const name = nameCol >= 0 ? String(cols[nameCol] || '').trim() : ''
+    const digits = raw.replace(/\D/g, '')
+    if (digits.length >= 10) {
+      const e164 = digits.startsWith('1') ? '+' + digits : '+1' + digits
+      results.push({ id: Date.now() + i, name, phone: e164, status: 'pending' })
+    }
+  })
+  return results
+}
+
 function QuickDial({ agents, phoneNumbers, onCall, calling, hasKey }) {
+  const [tab, setTab] = useState('single')
   const [toNumber, setToNumber] = useState('')
   const [agentId, setAgentId] = useState('')
   const [fromId, setFromId] = useState('')
   const [msg, setMsg] = useState(null)
+  const [contacts, setContacts] = useState([])
+  const [fileName, setFileName] = useState('')
+  const [bulkRunning, setBulkRunning] = useState(false)
+  const [bulkPaused, setBulkPaused] = useState(false)
+  const [tcpa, setTcpa] = useState(false)
+  const [delayMs, setDelayMs] = useState(3000)
+  const pausedRef = React.useRef(false)
+  const fileInputRef = React.useRef(null)
 
-  useEffect(() => {
-    if (agents.length && !agentId) setAgentId(agents[0].agent_id)
-  }, [agents])
-
-  useEffect(() => {
-    if (phoneNumbers.length && !fromId) setFromId(phoneNumbers[0].phone_number_id)
-  }, [phoneNumbers])
+  useEffect(() => { if (agents.length && !agentId) setAgentId(agents[0].agent_id) }, [agents])
+  useEffect(() => { if (phoneNumbers.length && !fromId) setFromId(phoneNumbers[0].phone_number_id) }, [phoneNumbers])
 
   const handleCall = async () => {
     if (!toNumber) { setMsg({ type: 'error', text: 'Enter a phone number.' }); return }
     if (!agentId) { setMsg({ type: 'error', text: 'Select an agent.' }); return }
     setMsg(null)
     const result = await onCall({ toNumber, agentId, fromId })
-    if (result.ok) {
-      setMsg({ type: 'success', text: `Calling ${toNumber}...` })
-      setToNumber('')
-      setTimeout(() => setMsg(null), 4000)
-    } else {
-      setMsg({ type: 'error', text: result.error })
-    }
+    if (result.ok) { setMsg({ type: 'success', text: 'Calling ' + toNumber + '...' }); setToNumber(''); setTimeout(() => setMsg(null), 4000) }
+    else { setMsg({ type: 'error', text: result.error }) }
   }
 
+  const handleFile = async (file) => {
+    if (!file) return
+    if (file.size > 10 * 1024 * 1024) { setMsg({ type: 'error', text: 'File too large (max 10MB)' }); return }
+    setFileName(file.name); setMsg(null)
+    try {
+      const parsed = await parseContactFile(file)
+      if (!parsed.length) { setMsg({ type: 'error', text: 'No valid phone numbers found.' }); return }
+      setContacts(parsed)
+    } catch (e) { setMsg({ type: 'error', text: 'Could not parse: ' + e.message }) }
+  }
+
+  const updateContact = (id, updates) => setContacts(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c))
+
+  const startBulk = async () => {
+    if (!tcpa) { setMsg({ type: 'error', text: 'Please confirm TCPA consent.' }); return }
+    if (!agentId) { setMsg({ type: 'error', text: 'Select an agent.' }); return }
+    setBulkRunning(true); setBulkPaused(false); pausedRef.current = false; setMsg(null)
+    for (const contact of contacts.filter(c => c.status === 'pending')) {
+      while (pausedRef.current) await new Promise(r => setTimeout(r, 300))
+      updateContact(contact.id, { status: 'calling' })
+      const result = await onCall({ toNumber: contact.phone, agentId, fromId })
+      updateContact(contact.id, { status: result.ok ? 'completed' : 'failed' })
+      if (delayMs > 0) await new Promise(r => setTimeout(r, delayMs))
+    }
+    setBulkRunning(false)
+  }
+
+  const pending = contacts.filter(c => c.status === 'pending').length
+  const completed = contacts.filter(c => c.status === 'completed').length
+  const failed = contacts.filter(c => c.status === 'failed').length
+  const AgentSelect = () => agents.length === 0 ? (
+    <div className="p-3 rounded-lg bg-muted border border-border text-xs text-subtle">No agents. <a href="/dashboard/agents" className="text-lime hover:underline">Create one</a></div>
+  ) : (
+    <div>
+      <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Agent</label>
+      <select value={agentId} onChange={e => setAgentId(e.target.value)} className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-lime appearance-none">
+        {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
+      </select>
+    </div>
+  )
+
   return (
-    <Card>
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-lime/10 border border-lime/20 flex items-center justify-center">
-          <PhoneCall size={15} className="text-lime" />
-        </div>
-        <div>
-          <h3 className="font-display font-semibold text-sm text-cream">Quick Dial</h3>
-          <p className="text-xs text-subtle">Launch an outbound call instantly</p>
-        </div>
+    <Card className="p-0 overflow-hidden">
+      <div className="flex border-b border-border">
+        {[{ id: 'single', label: 'Quick Dial', Icon: PhoneCall }, { id: 'bulk', label: 'Bulk Caller', Icon: FileSpreadsheet }].map(({ id, label, Icon }) => (
+          <button key={id} onClick={() => { setTab(id); setMsg(null) }}
+            className={clsx('flex-1 flex items-center justify-center gap-2 py-3.5 text-xs font-mono uppercase tracking-widest transition-colors',
+              tab === id ? 'text-lime border-b-2 border-lime bg-lime/5' : 'text-subtle hover:text-ghost')}>
+            <Icon size={13} /> {label}
+          </button>
+        ))}
       </div>
-
-      <div className="space-y-3">
-        {agents.length === 0 ? (
-          <div className="p-3 rounded-lg bg-muted border border-border text-xs text-subtle">
-            No agents yet.{' '}
-            <a href="/dashboard/agents" className="text-lime hover:underline">Create one first</a>
-          </div>
-        ) : (
-          <div>
-            <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Agent</label>
-            <select
-              value={agentId}
-              onChange={e => setAgentId(e.target.value)}
-              className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/10 appearance-none"
-            >
-              {agents.map(a => <option key={a.agent_id} value={a.agent_id}>{a.name}</option>)}
-            </select>
-          </div>
-        )}
-
+      <div className="p-5 space-y-3">
+        <AgentSelect />
         {phoneNumbers.length > 0 && (
           <div>
             <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Caller ID</label>
-            <select
-              value={fromId}
-              onChange={e => setFromId(e.target.value)}
-              className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/10 appearance-none"
-            >
-              {phoneNumbers.map(n => (
-                <option key={n.phone_number_id} value={n.phone_number_id}>{n.phone_number}</option>
-              ))}
+            <select value={fromId} onChange={e => setFromId(e.target.value)} className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-lime appearance-none">
+              {phoneNumbers.map(n => <option key={n.phone_number_id} value={n.phone_number_id}>{n.phone_number}</option>)}
             </select>
           </div>
         )}
-
-        <div>
-          <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Phone number</label>
-          <input
-            type="tel"
-            placeholder="+1 (555) 000-0000"
-            value={toNumber}
-            onChange={e => setToNumber(formatPhone(e.target.value))}
-            onKeyDown={e => e.key === 'Enter' && handleCall()}
-            className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm font-mono focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/10"
-          />
-        </div>
-
-        {msg && (
-          <div className={clsx(
-            'flex items-start gap-2 p-3 rounded-lg text-xs',
-            msg.type === 'error'
-              ? 'bg-coral/10 border border-coral/20 text-coral'
-              : 'bg-lime/10 border border-lime/20 text-lime'
-          )}>
-            {msg.type === 'error'
-              ? <X size={12} className="mt-0.5 flex-shrink-0" />
-              : <CheckCircle size={12} className="mt-0.5 flex-shrink-0" />
-            }
-            {msg.text}
-          </div>
+        {tab === 'single' && (
+          <>
+            <div>
+              <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Phone number</label>
+              <input type="tel" placeholder="+1 (555) 000-0000" value={toNumber}
+                onChange={e => setToNumber(formatPhone(e.target.value))}
+                onKeyDown={e => e.key === 'Enter' && handleCall()}
+                className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm font-mono focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/10" />
+            </div>
+            {msg && <div className={clsx('flex items-start gap-2 p-3 rounded-lg text-xs', msg.type === 'error' ? 'bg-coral/10 border border-coral/20 text-coral' : 'bg-lime/10 border border-lime/20 text-lime')}><X size={12} className="mt-0.5 flex-shrink-0" />{msg.text}</div>}
+            <Button onClick={handleCall} loading={calling} disabled={!hasKey || !toNumber || agents.length === 0} className="w-full" size="md">
+              <PhoneCall size={14} /> {calling ? 'Dialing...' : 'Call now'}
+            </Button>
+          </>
         )}
-
-        <Button
-          onClick={handleCall}
-          loading={calling}
-          disabled={!hasKey || !toNumber || agents.length === 0}
-          className="w-full"
-          size="md"
-        >
-          <PhoneCall size={14} />
-          {calling ? 'Dialing...' : 'Call now'}
-        </Button>
-
-        {!hasKey && (
-          <p className="text-xs text-subtle text-center">
-            <a href="/dashboard/settings" className="text-lime hover:underline">Configure API key in Settings</a>
-          </p>
+        {tab === 'bulk' && (
+          <>
+            {contacts.length === 0 ? (
+              <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-border rounded-xl p-6 text-center cursor-pointer hover:border-lime/30 hover:bg-muted/10 transition-all">
+                <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.tsv" className="hidden" onChange={e => handleFile(e.target.files[0])} />
+                <Upload size={20} className="text-subtle mx-auto mb-2" />
+                <p className="text-xs text-ghost">Drop CSV or Excel file</p>
+                <p className="text-xs text-subtle mt-1">.csv .xlsx .xls .tsv</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 rounded-xl bg-panel border border-border">
+                  <div>
+                    <p className="text-xs font-medium text-cream">{fileName}</p>
+                    <p className="text-xs text-subtle">{contacts.length} contacts · {pending} pending · {completed} done · {failed} failed</p>
+                  </div>
+                  <button onClick={() => { setContacts([]); setFileName('') }} className="text-subtle hover:text-coral transition-colors"><X size={13} /></button>
+                </div>
+                {contacts.length > 0 && <div className="h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-lime rounded-full transition-all" style={{ width: Math.round(((completed + failed) / contacts.length) * 100) + '%' }} /></div>}
+                <div>
+                  <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Delay between calls</label>
+                  <select value={delayMs} onChange={e => setDelayMs(Number(e.target.value))} className="w-full bg-ink/80 border border-border text-cream px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-lime appearance-none">
+                    <option value={1000}>1 second</option><option value={3000}>3 seconds</option><option value={5000}>5 seconds</option><option value={10000}>10 seconds</option>
+                  </select>
+                </div>
+                <div className="flex items-start gap-2.5 p-3 rounded-xl border border-border bg-panel">
+                  <input type="checkbox" id="tcpa-dash" checked={tcpa} onChange={e => setTcpa(e.target.checked)} className="mt-0.5 accent-lime" />
+                  <label htmlFor="tcpa-dash" className="text-xs text-ghost leading-relaxed cursor-pointer">I confirm I have consent to contact these individuals (TCPA)</label>
+                </div>
+                {msg && <div className={clsx('flex items-start gap-2 p-3 rounded-lg text-xs', msg.type === 'error' ? 'bg-coral/10 border border-coral/20 text-coral' : 'bg-lime/10 border border-lime/20 text-lime')}><X size={12} className="mt-0.5 flex-shrink-0" />{msg.text}</div>}
+                {!bulkRunning ? (
+                  <Button onClick={startBulk} disabled={!hasKey || pending === 0 || !tcpa || agents.length === 0} className="w-full" size="md"><Play size={14} /> Start ({pending} calls)</Button>
+                ) : bulkPaused ? (
+                  <Button onClick={() => { pausedRef.current = false; setBulkPaused(false) }} className="w-full" size="md"><Play size={14} /> Resume</Button>
+                ) : (
+                  <Button onClick={() => { pausedRef.current = true; setBulkPaused(true) }} variant="secondary" className="w-full" size="md"><Pause size={14} /> Pause</Button>
+                )}
+                <button onClick={() => fileInputRef.current?.click()} className="w-full text-xs font-mono text-subtle hover:text-lime transition-colors text-center">Upload different file</button>
+                <input ref={fileInputRef} type="file" accept=".csv,.xlsx,.xls,.tsv" className="hidden" onChange={e => handleFile(e.target.files[0])} />
+              </div>
+            )}
+          </>
         )}
       </div>
     </Card>
@@ -275,13 +348,9 @@ function InboundPanel({ phoneNumbers, agents }) {
 
 // ── Main Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
-  useSEO({ title: "Command Center", description: "Manage your AI voice agents, launch outbound calls, and monitor live call activity.", noIndex: true })
-
-  const { user } = useAuth()
-  const token = user?.access_token || null
   const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(token)
-  const hasKey = true // Key is server-side
+  const el = useElevenLabs(settings.elevenLabsKey)
+  const hasKey = !!settings.elevenLabsKey
 
   const [agents, setAgents] = useState([])
   const [phoneNumbers, setPhoneNumbers] = useState([])
@@ -422,8 +491,8 @@ export default function Dashboard() {
                 <Zap size={18} className="text-lime" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-cream">Connect your AI voice account to get started</p>
-                <p className="text-xs text-ghost mt-0.5">Add your API key in Settings, create an agent, and you are ready to make calls.</p>
+                <p className="text-sm font-semibold text-cream">Connect your ElevenLabs account to get started</p>
+                <p className="text-xs text-ghost mt-0.5">Add your API key in Settings, create an agent, and you are ready to call.</p>
               </div>
               <a href="/dashboard/settings">
                 <Button size="sm">Go to Settings</Button>

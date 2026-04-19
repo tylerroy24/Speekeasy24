@@ -3,16 +3,19 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { clsx } from 'clsx'
 import {
-  Phone, PhoneIncoming, Activity, Bot, BarChart3, Settings, LogOut, ChevronRight, Zap, FileSpreadsheet
+  Phone, PhoneIncoming, Activity, Bot, BarChart3, Settings, LogOut, ChevronRight, Zap, FileSpreadsheet, MessageSquare, TrendingUp
 } from 'lucide-react'
 
 const navItems = [
   { icon: Phone, label: 'Outbound Calls', path: '/dashboard' },
   { icon: PhoneIncoming, label: 'Inbound Calls', path: '/dashboard/inbound' },
   { icon: FileSpreadsheet, label: 'Bulk Caller', path: '/dashboard/bulk' },
+  { icon: MessageSquare, label: 'SMS', path: '/dashboard/sms' },
   { icon: Activity, label: 'Live Monitor', path: '/dashboard/monitor' },
+  { icon: TrendingUp, label: 'Analytics', path: '/dashboard/analytics' },
   { icon: Bot, label: 'Agents', path: '/dashboard/agents' },
   { icon: BarChart3, label: 'Call History', path: '/dashboard/history' },
+  { icon: Zap, label: 'Integrations', path: '/dashboard/integrations' },
   { icon: Settings, label: 'Settings', path: '/dashboard/settings' },
 ]
 
@@ -27,8 +30,12 @@ export default function Sidebar() {
       <div className="px-5 py-5 border-b border-border">
         <Link to="/" className="flex items-center gap-2.5">
           <div className="w-7 h-7 rounded-lg bg-lime flex items-center justify-center flex-shrink-0">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
-              <path d="M2 8C2 5 4 3 8 2C12 1 14 3 14 6C14 9 12 10 10 10.5L8 14L6 10.5C4 10 2 11 2 8Z" fill="#0A0A0F"/>
+            <svg width="14" height="14" viewBox="0 0 20 21" fill="none">
+              <rect x="1.5" y="6" width="2.5" height="9" rx="1.25" fill="#0A0A0F"/>
+                <rect x="5" y="3.5" width="2.5" height="14" rx="1.25" fill="#0A0A0F"/>
+                <rect x="8.5" y="1.5" width="2.5" height="18" rx="1.25" fill="#0A0A0F"/>
+                <rect x="12" y="3.5" width="2.5" height="14" rx="1.25" fill="#0A0A0F"/>
+                <rect x="15.5" y="6" width="2.5" height="9" rx="1.25" fill="#0A0A0F"/>
             </svg>
           </div>
           <span className="font-display font-bold text-base text-cream">speekeasy</span>

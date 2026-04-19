@@ -49,8 +49,12 @@ export default function Login() {
       <div className="w-full max-w-md animate-on-load">
         <Link to="/" className="flex items-center gap-2.5 mb-10 justify-center">
           <div className="w-8 h-8 rounded-lg bg-lime flex items-center justify-center">
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-              <path d="M2 8C2 5 4 3 8 2C12 1 14 3 14 6C14 9 12 10 10 10.5L8 14L6 10.5C4 10 2 11 2 8Z" fill="#0A0A0F"/>
+            <svg width="16" height="16" viewBox="0 0 20 21" fill="none">
+              <rect x="1.5" y="6" width="2.5" height="9" rx="1.25" fill="#0A0A0F"/>
+                <rect x="5" y="3.5" width="2.5" height="14" rx="1.25" fill="#0A0A0F"/>
+                <rect x="8.5" y="1.5" width="2.5" height="18" rx="1.25" fill="#0A0A0F"/>
+                <rect x="12" y="3.5" width="2.5" height="14" rx="1.25" fill="#0A0A0F"/>
+                <rect x="15.5" y="6" width="2.5" height="9" rx="1.25" fill="#0A0A0F"/>
             </svg>
           </div>
           <span className="font-display font-bold text-lg text-cream">speekeasy</span>

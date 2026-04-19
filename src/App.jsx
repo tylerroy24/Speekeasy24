@@ -13,6 +13,9 @@ import Dashboard from './pages/Dashboard'
 import Inbound from './pages/Inbound'
 import BulkCall from './pages/BulkCall'
 import Monitor from './pages/Monitor'
+import Analytics from './pages/Analytics'
+import SMS from './pages/SMS'
+import Integrations from './pages/Integrations'
 import Agents from './pages/Agents'
 import History from './pages/History'
 import Settings from './pages/Settings'
@@ -35,6 +38,9 @@ export default function App() {
           <Route path="/dashboard/inbound" element={<ProtectedRoute><Inbound /></ProtectedRoute>} />
           <Route path="/dashboard/bulk" element={<ProtectedRoute><BulkCall /></ProtectedRoute>} />
           <Route path="/dashboard/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
+          <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
+          <Route path="/dashboard/sms" element={<ProtectedRoute><SMS /></ProtectedRoute>} />
+          <Route path="/dashboard/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
           <Route path="/dashboard/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
           <Route path="/dashboard/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

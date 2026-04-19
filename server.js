@@ -330,6 +330,266 @@ app.get('/api/el/conversations', requireAuth, (req, res) => {
   elProxy('/convai/conversations?' + params, {}, res)
 })
 
+app.get('/api/el/conversations/:id', requireAuth, (req, res) =>
+  elProxy('/convai/conversations/' + req.params.id, {}, res)
+)
+
+// ── Feature 1: Voicemail detection ────────────────────────────
+// Twilio detects AMD (Answering Machine Detection) and posts here
+// Set in Twilio: MachineDetection=Enable on your outbound calls
+app.post('/webhooks/twilio/amd', (req, res) => {
+  if (!verifyTwilioSignature(req)) return res.status(401).json({ error: 'Invalid signature' })
+  const { CallSid, AnsweredBy, MachineDetectionDuration } = req.body
+  log('AMD: ' + CallSid + ' -> ' + AnsweredBy)
+  broadcast('twilio.amd', {
+    callSid: CallSid,
+    answeredBy: AnsweredBy, // 'human', 'machine_start', 'machine_end_beep', 'fax', 'unknown'
+    isVoicemail: AnsweredBy && AnsweredBy.startsWith('machine'),
+    duration: MachineDetectionDuration,
+  })
+  res.sendStatus(204)
+})
+
+// Drop voicemail for a call
+app.post('/api/voicemail/drop', requireAuth, callLimiter, async (req, res) => {
+  const { callSid, message } = req.body
+  if (!callSid) return res.status(400).json({ error: 'callSid required' })
+
+  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN
+  if (!twilioAccountSid || !twilioAuthToken) {
+    return res.status(500).json({ error: 'Twilio credentials not configured' })
+  }
+
+  try {
+    // Use Twilio to redirect the call to a TwiML that reads the voicemail message
+    const voicemailMsg = message || process.env.DEFAULT_VOICEMAIL_MESSAGE || 'Hi, this is a message from our team. Please call us back at your earliest convenience. Thank you.'
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">${voicemailMsg}</Say><Hangup/></Response>`
+
+    const authHeader = 'Basic ' + Buffer.from(twilioAccountSid + ':' + twilioAuthToken).toString('base64')
+    const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + twilioAccountSid + '/Calls/' + callSid + '.json', {
+      method: 'POST',
+      headers: { 'Authorization': authHeader, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'Twiml=' + encodeURIComponent(twiml),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(400).json({ error: data.message || 'Twilio error' })
+    log('Voicemail dropped for: ' + callSid)
+    res.json({ ok: true })
+  } catch (err) {
+    log('Voicemail drop error: ' + err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── Feature 2: Live call transfer ─────────────────────────────
+// Transfer an active AI call to a human agent
+app.post('/api/transfer', requireAuth, async (req, res) => {
+  const { callSid, toNumber, agentName } = req.body
+  if (!callSid || !toNumber) return res.status(400).json({ error: 'callSid and toNumber required' })
+
+  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN
+  if (!twilioAccountSid || !twilioAuthToken) {
+    return res.status(500).json({ error: 'Twilio credentials not configured' })
+  }
+
+  try {
+    const twiml = `<?xml version="1.0" encoding="UTF-8"?><Response><Say voice="Polly.Joanna">Please hold while I transfer you to ${agentName || 'a team member'}.</Say><Dial timeout="30" action="/webhooks/twilio/transfer-complete"><Number>${toNumber}</Number></Dial></Response>`
+    const authHeader = 'Basic ' + Buffer.from(twilioAccountSid + ':' + twilioAuthToken).toString('base64')
+    const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + twilioAccountSid + '/Calls/' + callSid + '.json', {
+      method: 'POST',
+      headers: { 'Authorization': authHeader, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: 'Twiml=' + encodeURIComponent(twiml),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(400).json({ error: data.message || 'Twilio error' })
+    log('Call transferred: ' + callSid + ' -> ' + toNumber)
+    broadcast('call.transferred', { callSid, toNumber, agentName })
+    res.json({ ok: true })
+  } catch (err) {
+    log('Transfer error: ' + err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Transfer completion webhook
+app.post('/webhooks/twilio/transfer-complete', (req, res) => {
+  const { CallSid, DialCallStatus } = req.body
+  log('Transfer complete: ' + CallSid + ' -> ' + DialCallStatus)
+  broadcast('call.transfer-complete', { callSid: CallSid, dialStatus: DialCallStatus })
+  res.set('Content-Type', 'text/xml')
+  res.send('<?xml version="1.0" encoding="UTF-8"?><Response><Hangup/></Response>')
+})
+
+// ── Feature 3: SMS ─────────────────────────────────────────────
+const smsLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, message: { error: 'SMS rate limit exceeded' } })
+
+app.post('/api/sms/send', requireAuth, smsLimiter, async (req, res) => {
+  const { to, message, from } = req.body
+  if (!to || !message) return res.status(400).json({ error: 'to and message required' })
+  if (message.length > 1600) return res.status(400).json({ error: 'Message too long (max 1600 chars)' })
+
+  const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID
+  const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN
+  const twilioFromNumber = from || process.env.TWILIO_PHONE_NUMBER
+  if (!twilioAccountSid || !twilioAuthToken || !twilioFromNumber) {
+    return res.status(500).json({ error: 'Twilio SMS credentials not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER.' })
+  }
+
+  try {
+    const authHeader = 'Basic ' + Buffer.from(twilioAccountSid + ':' + twilioAuthToken).toString('base64')
+    const response = await fetch('https://api.twilio.com/2010-04-01/Accounts/' + twilioAccountSid + '/Messages.json', {
+      method: 'POST',
+      headers: { 'Authorization': authHeader, 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ To: to, From: twilioFromNumber, Body: message }).toString(),
+    })
+    const data = await response.json()
+    if (!response.ok) return res.status(400).json({ error: data.message || 'SMS failed' })
+    log('SMS sent to: ' + to)
+    res.json({ ok: true, sid: data.sid })
+  } catch (err) {
+    log('SMS error: ' + err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Inbound SMS webhook
+app.post('/webhooks/twilio/sms', (req, res) => {
+  if (!verifyTwilioSignature(req)) return res.status(401).json({ error: 'Invalid signature' })
+  const { From, To, Body, MessageSid } = req.body
+  log('Inbound SMS from: ' + From)
+  broadcast('sms.received', { from: From, to: To, body: Body, sid: MessageSid, ts: new Date().toISOString() })
+  res.set('Content-Type', 'text/xml')
+  res.send('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
+})
+
+// ── Feature 4: Analytics ───────────────────────────────────────
+app.get('/api/analytics', requireAuth, async (req, res) => {
+  const { days = 30 } = req.query
+  // Analytics are computed from call data stored in Supabase or returned from EL
+  // For now we return aggregate data from ElevenLabs conversations
+  try {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
+    const apiKey = process.env.ELEVENLABS_API_KEY
+    if (!apiKey) return res.status(500).json({ error: 'ElevenLabs not configured' })
+
+    const response = await fetch('https://api.elevenlabs.io/v1/convai/conversations?page_size=100', {
+      headers: { 'xi-api-key': apiKey },
+    })
+    const data = await response.json()
+    const convs = data.conversations || []
+
+    // Compute analytics
+    const total = convs.length
+    const completed = convs.filter(c => c.status === 'done').length
+    const avgDuration = total > 0
+      ? Math.round(convs.reduce((sum, c) => sum + (c.metadata?.call_duration_secs || 0), 0) / total)
+      : 0
+
+    // Sentiment breakdown
+    const sentiments = { positive: 0, neutral: 0, negative: 0, unknown: 0 }
+    convs.forEach(c => {
+      const s = c.analysis?.user_sentiment?.toLowerCase()
+      if (s === 'positive') sentiments.positive++
+      else if (s === 'negative') sentiments.negative++
+      else if (s === 'neutral') sentiments.neutral++
+      else sentiments.unknown++
+    })
+
+    // Calls per day (last 7 days)
+    const dailyCounts = {}
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000)
+      dailyCounts[d.toISOString().slice(0, 10)] = 0
+    }
+    convs.forEach(c => {
+      const day = (c.start_time_unix_secs
+        ? new Date(c.start_time_unix_secs * 1000)
+        : new Date()).toISOString().slice(0, 10)
+      if (dailyCounts[day] !== undefined) dailyCounts[day]++
+    })
+
+    // Success rate
+    const successRate = total > 0 ? Math.round((completed / total) * 100) : 0
+
+    // Top agents by call count
+    const agentCounts = {}
+    convs.forEach(c => {
+      const id = c.agent_id || 'unknown'
+      agentCounts[id] = (agentCounts[id] || 0) + 1
+    })
+
+    res.json({
+      summary: { total, completed, successRate, avgDuration },
+      sentiments,
+      dailyCounts,
+      agentCounts,
+      period: days,
+    })
+  } catch (err) {
+    log('Analytics error: ' + err.message)
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── Feature 5: CRM Webhooks ────────────────────────────────────
+// Store user-configured CRM webhook destinations
+const crmWebhooks = new Map() // In production use DB
+
+app.get('/api/crm/webhooks', requireAuth, (req, res) => {
+  const userId = req.user?.id || 'dev'
+  const hooks = crmWebhooks.get(userId) || []
+  res.json({ webhooks: hooks })
+})
+
+app.post('/api/crm/webhooks', requireAuth, (req, res) => {
+  const userId = req.user?.id || 'dev'
+  const { name, url, events, headers: customHeaders } = req.body
+  if (!name || !url) return res.status(400).json({ error: 'name and url required' })
+
+  const hooks = crmWebhooks.get(userId) || []
+  const hook = {
+    id: Date.now().toString(),
+    name, url,
+    events: events || ['call.completed'],
+    headers: customHeaders || {},
+    createdAt: new Date().toISOString(),
+    active: true,
+  }
+  hooks.push(hook)
+  crmWebhooks.set(userId, hooks)
+  log('CRM webhook added: ' + name + ' -> ' + url)
+  res.json({ ok: true, webhook: hook })
+})
+
+app.delete('/api/crm/webhooks/:id', requireAuth, (req, res) => {
+  const userId = req.user?.id || 'dev'
+  const hooks = (crmWebhooks.get(userId) || []).filter(h => h.id !== req.params.id)
+  crmWebhooks.set(userId, hooks)
+  res.json({ ok: true })
+})
+
+// Fire CRM webhooks when call events happen
+async function fireCRMWebhooks(event, data) {
+  for (const [userId, hooks] of crmWebhooks.entries()) {
+    for (const hook of hooks) {
+      if (!hook.active || !hook.events.includes(event)) continue
+      try {
+        await fetch(hook.url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', ...hook.headers },
+          body: JSON.stringify({ event, data, ts: new Date().toISOString() }),
+          signal: AbortSignal.timeout(5000),
+        })
+        log('CRM webhook fired: ' + hook.name + ' [' + event + ']')
+      } catch (err) {
+        log('CRM webhook failed: ' + hook.name + ' -> ' + err.message)
+      }
+    }
+  }
+}
+
 // ── Health check ───────────────────────────────────────────────
 // Load balancers (Railway, AWS ALB, Nginx) poll this endpoint.
 // Must return 200 quickly or the instance is marked unhealthy and removed.
@@ -520,6 +780,19 @@ app.post('/webhooks/elevenlabs', (req, res) => {
       summary: p.analysis?.transcript_summary || '',
       sentiment: p.analysis?.user_sentiment || null,
       successEval: p.analysis?.call_successful || null,
+      timestamp: new Date().toISOString(),
+    })
+
+    // Fire CRM webhooks
+    fireCRMWebhooks('call.completed', {
+      conversationId: p.conversation_id,
+      agentId: p.agent_id,
+      duration: p.metadata?.call_duration_secs,
+      from: p.metadata?.from_number,
+      to: p.metadata?.to_number,
+      summary: p.analysis?.transcript_summary || '',
+      sentiment: p.analysis?.user_sentiment || null,
+      success: p.analysis?.call_successful || null,
       timestamp: new Date().toISOString(),
     })
     res.json({ received: true })
