@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar'
 import { Button, Card, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
+import { useSEO } from '../hooks/useSEO'
+import { useAuth } from '../context/AuthContext'
 import {
   Upload, Phone, PhoneCall, X, Check, AlertCircle,
   Play, Pause, Download, FileSpreadsheet, Trash2,
@@ -124,9 +126,12 @@ function ContactRow({ contact, onRemove }) {
 
 // ── Main component ────────────────────────────────────────────
 export default function BulkCall() {
-  const [settings] = useState(storage.getSettings())
+  useSEO({ title: "Bulk Caller", description: "Upload a contact list and launch an AI calling campaign.", noIndex: true })
+
+  const { user } = useAuth()
+  const token = user?.access_token || null
   const el = useElevenLabs(settings.elevenLabsKey)
-  const hasKey = !!settings.elevenLabsKey
+  const hasKey = true
 
   const [agents, setAgents] = useState([])
   const [phoneNumbers, setPhoneNumbers] = useState([])
@@ -140,6 +145,7 @@ export default function BulkCall() {
   const [delayMs, setDelayMs] = useState(3000)
   const [error, setError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [tcpaConsent, setTcpaConsent] = useState(false)
 
   const pausedRef = useRef(false)
   const fileInputRef = useRef(null)
@@ -162,9 +168,24 @@ export default function BulkCall() {
 
   const handleFile = async (file) => {
     if (!file) return
-    setFileName(file.name)
     setError('')
     setContacts([])
+
+    // FIX #7: File size limit (10MB max)
+    const MAX_SIZE = 10 * 1024 * 1024
+    if (file.size > MAX_SIZE) {
+      setError('File too large. Maximum size is 10MB.')
+      return
+    }
+
+    // Validate file type by extension
+    const validExts = /\.(xlsx|xls|xlsm|ods|csv|tsv|txt)$/i
+    if (!validExts.test(file.name)) {
+      setError('Unsupported file type. Please upload an Excel (.xlsx, .xls) or CSV file.')
+      return
+    }
+
+    setFileName(file.name)
 
     // Show loading state for large files
     const isExcel = /\.(xlsx|xls|xlsm|ods)$/i.test(file.name)
@@ -209,6 +230,11 @@ export default function BulkCall() {
     if (!fromId) { setError('Please select a caller ID.'); return }
     if (contacts.filter(c => c.status === 'pending').length === 0) {
       setError('No pending contacts to call.')
+      return
+    }
+    // FIX #14: Require TCPA consent before launching campaign
+    if (!tcpaConsent) {
+      setError('Please confirm you have obtained consent to contact these individuals before starting the campaign.')
       return
     }
 
@@ -427,12 +453,27 @@ export default function BulkCall() {
                     ))}
                   </div>
 
+                  {/* TCPA Consent - Fix #14 */}
+                  <div className="flex items-start gap-3 p-3 rounded-xl border border-border bg-panel">
+                    <input
+                      type="checkbox"
+                      id="tcpa"
+                      checked={tcpaConsent}
+                      onChange={e => setTcpaConsent(e.target.checked)}
+                      disabled={running}
+                      className="mt-0.5 flex-shrink-0 accent-lime cursor-pointer"
+                    />
+                    <label htmlFor="tcpa" className="text-xs text-ghost leading-relaxed cursor-pointer select-none">
+                      I confirm I have obtained proper consent to contact these individuals and this campaign complies with the TCPA and all applicable calling laws.
+                    </label>
+                  </div>
+
                   {/* Action buttons */}
-                  <div className="mt-4 space-y-2">
+                  <div className="space-y-2">
                     {!running ? (
                       <Button
                         onClick={startCampaign}
-                        disabled={!hasKey || stats.pending === 0 || agents.length === 0}
+                        disabled={!hasKey || stats.pending === 0 || agents.length === 0 || !tcpaConsent}
                         className="w-full"
                         size="md"
                       >
@@ -556,10 +597,22 @@ export default function BulkCall() {
 
                   {/* Start button at bottom if no stats card visible */}
                   {!running && stats.pending > 0 && (
-                    <div className="px-5 py-4 border-t border-border">
+                    <div className="px-5 py-4 border-t border-border space-y-3">
+                      <div className="flex items-start gap-3 p-3 rounded-xl border border-border bg-panel">
+                        <input
+                          type="checkbox"
+                          id="tcpa-bottom"
+                          checked={tcpaConsent}
+                          onChange={e => setTcpaConsent(e.target.checked)}
+                          className="mt-0.5 flex-shrink-0 accent-lime cursor-pointer"
+                        />
+                        <label htmlFor="tcpa-bottom" className="text-xs text-ghost leading-relaxed cursor-pointer select-none">
+                          I confirm I have consent to contact these individuals and comply with the TCPA.
+                        </label>
+                      </div>
                       <Button
                         onClick={startCampaign}
-                        disabled={!hasKey || agents.length === 0}
+                        disabled={!hasKey || agents.length === 0 || !tcpaConsent}
                         className="w-full"
                         size="lg"
                       >

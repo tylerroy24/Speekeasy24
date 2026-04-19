@@ -1,30 +1,48 @@
-import React, { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState, useEffect } from 'react'
+import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Input, Button } from '../components/UI'
-import { Eye, EyeOff, ChevronRight } from 'lucide-react'
+import { Eye, EyeOff, ChevronRight, Lock } from 'lucide-react'
+import { useSEO } from '../hooks/useSEO'
 
 export default function Login() {
-  const { login } = useAuth()
+  const { login, user } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [form, setForm] = useState({ email: '', password: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [showPw, setShowPw] = useState(false)
 
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true })
+  }, [user])
+
+  useSEO({ title: 'Sign in', canonical: '/login', noIndex: true })
+
+  const wasRedirected = location.state && location.state.from
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = {}
-    if (!form.email.includes('@')) errs.email = 'Enter a valid email'
+    if (!form.email.includes('@')) errs.email = 'Valid email required'
     if (!form.password) errs.password = 'Password is required'
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    await new Promise(r => setTimeout(r, 700))
-    login({ name: form.email.split('@')[0], email: form.email, plan: 'starter' })
-    navigate('/dashboard')
+    try {
+      await login(form.email, form.password)
+      navigate(location.state?.from || '/dashboard')
+    } catch (err) {
+      setErrors({ email: err.message || 'Invalid email or password' })
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const set = (k) => (e) => { setForm(f => ({ ...f, [k]: e.target.value })); setErrors(er => ({ ...er, [k]: '' })) }
+  const set = (k) => (e) => {
+    setForm(f => ({ ...f, [k]: e.target.value }))
+    setErrors(er => ({ ...er, [k]: '' }))
+  }
 
   return (
     <div className="min-h-screen mesh-bg flex items-center justify-center px-6 py-12">
@@ -37,6 +55,13 @@ export default function Login() {
           </div>
           <span className="font-display font-bold text-lg text-cream">speekeasy</span>
         </Link>
+
+        {wasRedirected && (
+          <div className="flex items-center gap-3 p-4 mb-4 rounded-xl bg-lime/5 border border-lime/20 text-sm text-ghost">
+            <Lock size={14} className="text-lime flex-shrink-0" />
+            Please sign in to access the dashboard.
+          </div>
+        )}
 
         <div className="glass-card rounded-2xl p-8">
           <h1 className="font-display font-extrabold text-2xl text-cream mb-1">Welcome back</h1>
@@ -83,7 +108,7 @@ export default function Login() {
           </form>
 
           <p className="text-sm text-ghost mt-6 text-center">
-            Don't have an account?{' '}
+            No account?{' '}
             <Link to="/register" className="text-lime hover:text-lime-dim transition-colors font-medium">Create one free</Link>
           </p>
         </div>

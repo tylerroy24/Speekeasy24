@@ -3,6 +3,8 @@ import Sidebar from '../components/Sidebar'
 import { Button, Card, Badge, Waveform, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
+import { useSEO } from '../hooks/useSEO'
+import { useAuth } from '../context/AuthContext'
 import { useCallEvents } from '../hooks/useCallEvents'
 import {
   Phone, PhoneCall, PhoneIncoming, PhoneOff, CheckCircle,
@@ -273,9 +275,13 @@ function InboundPanel({ phoneNumbers, agents }) {
 
 // ── Main Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
+  useSEO({ title: "Command Center", description: "Manage your AI voice agents, launch outbound calls, and monitor live call activity.", noIndex: true })
+
+  const { user } = useAuth()
+  const token = user?.access_token || null
   const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(settings.elevenLabsKey)
-  const hasKey = !!settings.elevenLabsKey
+  const el = useElevenLabs(token)
+  const hasKey = true // Key is server-side
 
   const [agents, setAgents] = useState([])
   const [phoneNumbers, setPhoneNumbers] = useState([])
@@ -416,8 +422,8 @@ export default function Dashboard() {
                 <Zap size={18} className="text-lime" />
               </div>
               <div className="flex-1">
-                <p className="text-sm font-semibold text-cream">Connect your ElevenLabs account to get started</p>
-                <p className="text-xs text-ghost mt-0.5">Add your API key in Settings, create an agent, and you are ready to call.</p>
+                <p className="text-sm font-semibold text-cream">Connect your AI voice account to get started</p>
+                <p className="text-xs text-ghost mt-0.5">Add your API key in Settings, create an agent, and you are ready to make calls.</p>
               </div>
               <a href="/dashboard/settings">
                 <Button size="sm">Go to Settings</Button>

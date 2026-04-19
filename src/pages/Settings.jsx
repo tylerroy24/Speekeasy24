@@ -4,6 +4,7 @@ import { Button, Input, Card } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
+import { useSEO } from '../hooks/useSEO'
 import { Key, User, Bell, Shield, Check, X, Eye, EyeOff, ExternalLink, AlertCircle, Webhook, Copy } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -25,7 +26,9 @@ function Section({ title, desc, icon: Icon, children }) {
 }
 
 export default function Settings() {
-  const { user, updateUser } = useAuth()
+  useSEO({ title: "Settings", description: "Manage your Speekeasy workspace settings.", noIndex: true })
+
+  const { user, updateUser, userName, userEmail } = useAuth()
   const [settings, setSettings] = useState(storage.getSettings())
 
   // ElevenLabs key
@@ -35,7 +38,7 @@ export default function Settings() {
   const [keyStatus, setKeyStatus] = useState(settings.elevenLabsKey ? 'saved' : null)
 
   // Account form
-  const [name, setName] = useState(user?.name || '')
+  const [name, setName] = useState(userName || '')
   const [savingAccount, setSavingAccount] = useState(false)
   const [accountSaved, setAccountSaved] = useState(false)
 
@@ -124,94 +127,30 @@ export default function Settings() {
 
         <div className="p-8 max-w-2xl">
 
-          {/* ElevenLabs API */}
+          {/* Voice AI API */}
           <Section
             title="Voice AI API"
-            desc="Connect your voice AI account to enable agents and outbound calls."
+            desc="API credentials are configured server-side for security."
             icon={Key}
           >
             <div className="space-y-4">
-              <div className="flex flex-col gap-1.5">
-                <label className="text-xs font-mono text-ghost uppercase tracking-widest">API Key</label>
-                <div className="relative">
-                  <input
-                    type={showKey ? 'text' : 'password'}
-                    placeholder="sk_..."
-                    value={elKey}
-                    onChange={e => { setElKey(e.target.value); setKeyStatus(null) }}
-                    className="input-base w-full px-4 py-3 rounded-lg text-sm font-mono pr-24"
-                  />
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={() => setShowKey(s => !s)}
-                      className="p-1.5 text-subtle hover:text-ghost transition-colors"
-                    >
-                      {showKey ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                    {elKey && (
-                      <button
-                        type="button"
-                        onClick={removeKey}
-                        className="p-1.5 text-subtle hover:text-coral transition-colors"
-                      >
-                        <X size={14} />
-                      </button>
-                    )}
-                  </div>
+              <div className="flex items-start gap-3 p-4 rounded-xl bg-lime/5 border border-lime/20">
+                <Check size={15} className="text-lime flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-cream font-medium">API key is configured server-side</p>
+                  <p className="text-xs text-ghost mt-1 leading-relaxed">
+                    For security, your Voice AI API key is stored as a server environment variable
+                    (<code className="font-mono text-lime">ELEVENLABS_API_KEY</code>) and never exposed to the browser.
+                    To update it, edit your <code className="font-mono text-lime">.env</code> file and restart the server.
+                  </p>
                 </div>
-
-                {/* Key status */}
-                {keyStatus === 'valid' && (
-                  <div className="flex items-center gap-1.5 text-xs text-lime">
-                    <Check size={12} /> Key validated and saved
-                  </div>
-                )}
-                {keyStatus === 'saved' && (
-                  <div className="flex items-center gap-1.5 text-xs text-lime">
-                    <Check size={12} /> API key configured
-                  </div>
-                )}
-                {keyStatus === 'invalid' && (
-                  <div className="flex flex-col gap-2">
-                    <div className="flex items-start gap-1.5 text-xs text-coral">
-                      <X size={12} className="mt-0.5 flex-shrink-0" />
-                      <span>Validation failed: {keyError || 'Could not reach the voice API'}. This may be a browser CORS issue.</span>
-                    </div>
-                    <button
-                      onClick={saveKeyAnyway}
-                      className="text-xs text-lime hover:text-lime-dim underline text-left font-mono"
-                    >
-                      Save key anyway and test by creating an agent →
-                    </button>
-                  </div>
-                )}
-                {keyStatus === 'empty' && (
-                  <div className="flex items-center gap-1.5 text-xs text-coral">
-                    <AlertCircle size={12} /> Please enter your API key
-                  </div>
-                )}
-              </div>
-
-              <div className="flex items-center gap-3">
-                <Button onClick={validateAndSaveKey} loading={validating} size="sm">
-                  <Check size={13} /> Validate & save
-                </Button>
-                <a
-                  href="https://elevenlabs.io/app/settings/api-keys"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-1.5 text-xs text-lime hover:text-lime-dim transition-colors font-mono"
-                >
-                  Get API key <ExternalLink size={11} />
-                </a>
               </div>
 
               <div className="p-4 bg-panel rounded-xl border border-border">
                 <p className="text-xs font-mono text-ghost uppercase tracking-widest mb-3">Setup checklist</p>
                 <ul className="space-y-2.5">
                   {[
-                    { done: !!settings.elevenLabsKey, label: 'Voice AI API key connected' },
+                    { done: true, label: 'Voice AI API key configured (server-side)' },
                     { done: false, label: 'Phone number purchased and linked' },
                     { done: false, label: 'Twilio account linked (for outbound calling)' },
                     { done: false, label: 'First AI agent created' },
@@ -230,8 +169,8 @@ export default function Settings() {
 
               <div className="p-4 bg-violet/5 border border-violet/20 rounded-xl text-xs text-ghost leading-relaxed">
                 <p className="font-semibold text-cream mb-1">How outbound calling works</p>
-                Speekeasy uses conversational AI + Twilio to make outbound calls. You'll need to: (1) create a voice AI account, (2) purchase a phone number, and (3) link your Twilio account. Then paste your API key above and you're ready to go.
-                {' '}<a href="https://elevenlabs.io/docs/conversational-ai/phone-calls/twilio" target="_blank" rel="noreferrer" className="text-violet hover:text-cream underline">Read the docs →</a>
+                Speekeasy uses conversational AI + Twilio to make outbound calls. You need to: (1) add ELEVENLABS_API_KEY to your .env, (2) purchase a phone number, and (3) link your Twilio account.{' '}
+                <a href="https://elevenlabs.io/docs/conversational-ai/phone-calls/twilio" target="_blank" rel="noreferrer" className="text-violet hover:text-cream underline">Read the docs</a>
               </div>
             </div>
           </Section>
@@ -251,7 +190,7 @@ export default function Settings() {
               />
               <Input
                 label="Email"
-                value={user?.email || ''}
+                value={userEmail || user?.email || ''}
                 disabled
                 hint="Email cannot be changed after registration."
               />

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Nav from '../components/Nav'
 import { Mail, MessageSquare, User, Send, Check, AlertCircle, Phone, MapPin } from 'lucide-react'
+import { useSEO, schema } from '../hooks/useSEO'
 import { clsx } from 'clsx'
 
 const MAX_CHARS = 1000
@@ -13,10 +14,14 @@ export default function Contact() {
   const [sent, setSent] = useState(false)
   const [serverError, setServerError] = useState('')
 
-  useEffect(() => {
-    document.title = 'Contact Us -- Speekeasy'
-    window.scrollTo(0, 0)
-  }, [])
+  useSEO({
+    title: 'Contact Us',
+    description: 'Get in touch with the Speekeasy team. We typically respond within one business day.',
+    canonical: '/contact',
+    structuredData: schema.webPage('Contact Us', 'Contact the Speekeasy team', '/contact'),
+  })
+
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   const set = (k) => (e) => {
     const val = k === 'message' ? e.target.value.slice(0, MAX_CHARS) : e.target.value

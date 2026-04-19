@@ -1,16 +1,28 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { Input, Button } from '../components/UI'
 import { Eye, EyeOff, ChevronRight } from 'lucide-react'
+import { useSEO } from '../hooks/useSEO'
 
 export default function Register() {
-  const { login } = useAuth()
+  const { login, register, user } = useAuth()
   const navigate = useNavigate()
   const [form, setForm] = useState({ name: '', email: '', password: '', confirm: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [showPw, setShowPw] = useState(false)
+
+  useSEO({
+    title: 'Create your free account',
+    description: 'Sign up for Speekeasy and start deploying AI voice agents in minutes. No credit card required.',
+    canonical: '/register',
+    noIndex: false,
+  })
+
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true })
+  }, [user])
 
   const validate = () => {
     const e = {}
@@ -26,10 +38,15 @@ export default function Register() {
     const errs = validate()
     if (Object.keys(errs).length) { setErrors(errs); return }
     setLoading(true)
-    // Simulate API call
-    await new Promise(r => setTimeout(r, 900))
-    login({ name: form.name, email: form.email, plan: 'starter', createdAt: new Date().toISOString() })
-    navigate('/dashboard')
+    try {
+      await register({ name: form.name, email: form.email, password: form.password })
+      // If Supabase is configured, user may need to verify email
+      navigate('/dashboard')
+    } catch (err) {
+      setErrors({ email: err.message })
+    } finally {
+      setLoading(false)
+    }
   }
 
   const set = (k) => (e) => { setForm(f => ({ ...f, [k]: e.target.value })); setErrors(er => ({ ...er, [k]: '' })) }

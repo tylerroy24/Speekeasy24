@@ -1,87 +1,72 @@
-// ElevenLabs API integration
-// Docs: https://elevenlabs.io/docs/api-reference
+// ElevenLabs API - all calls go through our backend proxy
+// The ElevenLabs API key is stored server-side only (ELEVENLABS_API_KEY env var)
+// This file never holds or exposes the API key
 
-const ELEVENLABS_BASE = 'https://api.elevenlabs.io/v1'
+const API_BASE = '/api/el'
 
-export function useElevenLabs(apiKey) {
+async function req(path, opts = {}, token) {
   const headers = {
-    'xi-api-key': apiKey,
     'Content-Type': 'application/json',
   }
+  // Attach Supabase JWT for authenticated routes
+  if (token) headers['Authorization'] = 'Bearer ' + token
 
-  const req = async (path, opts = {}) => {
-    if (!apiKey) throw new Error('No ElevenLabs API key configured')
-    const res = await fetch(`${ELEVENLABS_BASE}${path}`, { headers, ...opts })
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error(err.detail?.message || `ElevenLabs error: ${res.status}`)
-    }
-    if (res.status === 204) return true
-    return res.json()
+  const res = await fetch(API_BASE + path, { headers, ...opts })
+
+  if (res.status === 204) return true
+
+  const data = await res.json()
+  if (!res.ok) {
+    throw new Error(data.error || 'API error ' + res.status)
   }
+  return data
+}
 
-  // ── Voices ────────────────────────────────────────────────
-  const getVoices = async () => {
-    const data = await req('/voices')
-    return data.voices || []
-  }
+export function useElevenLabs(token) {
+  // token = Supabase JWT, passed from auth context
+  // In dev mode, token can be null and auth is skipped server-side
 
-  // ── Agents ────────────────────────────────────────────────
+  const call = (path, opts) => req(path, opts, token)
+
+  const getVoices = () => call('/voices')
+
   const getAgents = async () => {
-    const data = await req('/convai/agents')
+    const data = await call('/agents')
     return data.agents || []
   }
 
-  const getAgent = async (agentId) => {
-    return req(`/convai/agents/${agentId}`)
+  const getPhoneNumbers = async () => {
+    const data = await call('/phone-numbers')
+    return Array.isArray(data) ? data : data.phone_numbers || []
   }
 
-  const createAgent = async ({ name, prompt, voiceId, firstMessage }) => {
-    return req('/convai/agents/create', {
+  const createAgent = ({ name, prompt, voiceId, firstMessage }) =>
+    call('/agents', {
       method: 'POST',
       body: JSON.stringify({
         name,
         conversation_config: {
           agent: {
-            prompt: {
-              prompt,
-              llm: 'claude-sonnet-4-5',
-              temperature: 0.7,
-            },
-            first_message: firstMessage || `Hi! This is ${name}. How can I help you today?`,
+            prompt: { prompt, llm: 'claude-sonnet-4-5', temperature: 0.7 },
+            first_message: firstMessage || 'Hi! This is ' + name + '. How can I help you today?',
             language: 'en',
           },
-          tts: {
-            voice_id: voiceId,
-            model_id: 'eleven_turbo_v2_5',
-          },
+          tts: { voice_id: voiceId, model_id: 'eleven_turbo_v2_5' },
         },
       }),
     })
-  }
 
-  const deleteAgent = async (agentId) => {
-    return req(`/convai/agents/${agentId}`, { method: 'DELETE' })
-  }
+  const deleteAgent = (agentId) =>
+    call('/agents/' + agentId, { method: 'DELETE' })
 
-  // ── Phone Numbers ─────────────────────────────────────────
-  const getPhoneNumbers = async () => {
-    const data = await req('/convai/phone-numbers')
-    // ElevenLabs returns a plain array, not a nested object
-    return Array.isArray(data) ? data : data.phone_numbers || []
-  }
-
-  // Assign an inbound agent to a phone number
-  const assignInboundAgent = async (phoneNumberId, agentId) => {
-    return req(`/convai/phone-numbers/${phoneNumberId}`, {
+  const assignInboundAgent = (phoneNumberId, agentId) =>
+    call('/phone-numbers/' + phoneNumberId, {
       method: 'PATCH',
       body: JSON.stringify({ agent_id: agentId }),
     })
-  }
 
-  // ── Outbound Calls ────────────────────────────────────────
-  const initiateOutboundCall = async ({ agentId, toNumber, fromNumberId }) => {
-    return req('/convai/twilio/outbound_call', {
+  const initiateOutboundCall = ({ agentId, toNumber, fromNumberId }) =>
+    call('/call', {
       method: 'POST',
       body: JSON.stringify({
         agent_id: agentId,
@@ -89,37 +74,24 @@ export function useElevenLabs(apiKey) {
         to_number: toNumber,
       }),
     })
-  }
 
-  // ── Conversations (call history from EL) ─────────────────
   const getConversations = async ({ agentId, limit = 50 } = {}) => {
     const params = new URLSearchParams({ page_size: limit })
     if (agentId) params.set('agent_id', agentId)
-    const data = await req(`/convai/conversations?${params}`)
+    const data = await call('/conversations?' + params)
     return data.conversations || []
   }
 
-  const getConversation = async (conversationId) => {
-    return req(`/convai/conversations/${conversationId}`)
-  }
-
-  // ── Validate key ──────────────────────────────────────────
+  // Validate by trying to fetch voices through the proxy
   const validateKey = async () => {
-    if (!apiKey) return { valid: false, error: 'No key provided' }
     try {
-      const res = await fetch(`${ELEVENLABS_BASE}/user`, {
-        headers,
-        mode: 'cors',
+      const res = await fetch('/api/el/voices', {
+        headers: token ? { Authorization: 'Bearer ' + token } : {},
       })
       if (res.ok) return { valid: true }
       const body = await res.json().catch(() => ({}))
-      return { valid: false, error: body.detail?.message || `HTTP ${res.status}` }
+      return { valid: false, error: body.error || 'HTTP ' + res.status }
     } catch (e) {
-      // CORS or network error -- try voices endpoint as fallback
-      try {
-        const res2 = await fetch(`${ELEVENLABS_BASE}/voices`, { headers })
-        if (res2.ok) return { valid: true }
-      } catch {}
       return { valid: false, error: e.message }
     }
   }
@@ -127,14 +99,12 @@ export function useElevenLabs(apiKey) {
   return {
     getVoices,
     getAgents,
-    getAgent,
+    getPhoneNumbers,
     createAgent,
     deleteAgent,
-    getPhoneNumbers,
     assignInboundAgent,
     initiateOutboundCall,
     getConversations,
-    getConversation,
     validateKey,
   }
 }

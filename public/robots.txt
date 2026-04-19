@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+Disallow: /dashboard
+Disallow: /dashboard/
+Disallow: /api/
+Disallow: /webhooks/
+
+Sitemap: https://speekeasy.io/sitemap.xml

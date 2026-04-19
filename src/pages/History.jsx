@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import { Card, Badge, Button } from '../components/UI'
 import { storage } from '../lib/storage'
-import { Phone, PhoneCall, PhoneOff, Clock, CheckCircle, Search, Trash2, Download } from 'lucide-react'
+import { useSEO } from '../hooks/useSEO'
+import { Phone, PhoneCall, PhoneIncoming, PhoneOff, Clock, CheckCircle, Search, Trash2, Download } from 'lucide-react'
 import { clsx } from 'clsx'
 
 const STATUS_MAP = {
@@ -19,6 +20,8 @@ function formatDate(iso) {
 }
 
 export default function History() {
+  useSEO({ title: "Call History", description: "Review your complete call history, transcripts, and outcomes.", noIndex: true })
+
   const [calls, setCalls] = useState([])
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
@@ -130,7 +133,8 @@ export default function History() {
           {/* Table */}
           <Card className="p-0">
             <div className="px-5 py-3 border-b border-border grid grid-cols-12 text-xs font-mono text-subtle uppercase tracking-wider">
-              <div className="col-span-4">Number</div>
+              <div className="col-span-1">Dir</div>
+              <div className="col-span-3">Number</div>
               <div className="col-span-3">Agent</div>
               <div className="col-span-3">Time</div>
               <div className="col-span-2 text-right">Status</div>
@@ -150,9 +154,16 @@ export default function History() {
               filtered.map(call => {
                 const s = STATUS_MAP[call.status] || STATUS_MAP.initiated
                 const Icon = s.icon
+                const isInbound = call.direction === 'inbound'
+                const DirIcon = isInbound ? PhoneIncoming : PhoneCall
                 return (
                   <div key={call.id} className="px-5 py-4 border-b border-border last:border-0 grid grid-cols-12 items-center hover:bg-muted/20 transition-colors">
-                    <div className="col-span-4 flex items-center gap-3">
+                    <div className="col-span-1">
+                      <div className={clsx('w-6 h-6 rounded-full flex items-center justify-center', isInbound ? 'bg-violet/10' : 'bg-lime/10')} title={isInbound ? 'Inbound' : 'Outbound'}>
+                        <DirIcon size={11} className={isInbound ? 'text-violet' : 'text-lime'} />
+                      </div>
+                    </div>
+                    <div className="col-span-3 flex items-center gap-3">
                       <div className={clsx('w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0',
                         call.status === 'completed' ? 'bg-violet/10' :
                         call.status === 'failed' ? 'bg-coral/10' : 'bg-lime/10'
@@ -162,7 +173,7 @@ export default function History() {
                           call.status === 'failed' ? 'text-coral' : 'text-lime'
                         } />
                       </div>
-                      <span className="text-sm font-mono text-cream">{call.to || '—'}</span>
+                      <span className="text-sm font-mono text-cream">{call.to || call.from || '--'}</span>
                     </div>
                     <div className="col-span-3">
                       <span className="text-sm text-ghost">{call.agentName || 'Unknown'}</span>

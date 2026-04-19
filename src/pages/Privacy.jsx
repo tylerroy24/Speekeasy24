@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useSEO, schema } from '../hooks/useSEO'
 import Nav from '../components/Nav'
 
 const LAST_UPDATED = 'April 19, 2026'
@@ -36,10 +37,14 @@ function UL({ items }) {
 }
 
 export default function Privacy() {
-  useEffect(() => {
-    document.title = 'Privacy Policy -- Speekeasy'
-    window.scrollTo(0, 0)
-  }, [])
+  useSEO({
+    title: 'Privacy Policy',
+    description: 'Read the Speekeasy Privacy Policy. Learn how we collect, use, and protect your personal data.',
+    canonical: '/privacy',
+    structuredData: schema.webPage('Privacy Policy', 'Speekeasy Privacy Policy', '/privacy'),
+  })
+
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   return (
     <div className="min-h-screen bg-ink">

@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import { Button, Input, Textarea, Select, Card, Badge, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
-import { storage } from '../lib/storage'
+import { useAuth } from '../context/AuthContext'
+import { useSEO } from '../hooks/useSEO'
 import { Bot, Plus, Trash2, X, Check, AlertCircle, ChevronRight, Mic } from 'lucide-react'
 import { clsx } from 'clsx'
 
@@ -10,11 +11,13 @@ const DEFAULT_PROMPT = `You are a friendly and professional sales development re
 
 Be conversational, confident, and empathetic. Listen actively and respond to objections naturally. Always confirm the prospect's interest before attempting to book a meeting.
 
-Keep responses brief and conversational — this is a phone call, not an essay.`
+Keep responses brief and conversational -- this is a phone call, not an essay.`
 
 export default function Agents() {
-  const settings = storage.getSettings()
-  const el = useElevenLabs(settings.elevenLabsKey)
+  useSEO({ title: "AI Agents", description: "Create and manage your AI voice agents.", noIndex: true })
+
+  const [settings, setSettings] = useState(storage.getSettings())
+  const el = useElevenLabs(token)
 
   const [agents, setAgents] = useState([])
   const [voices, setVoices] = useState([])
@@ -32,7 +35,7 @@ export default function Agents() {
     firstMessage: '',
   })
 
-  const hasKey = !!settings.elevenLabsKey
+  const hasKey = true
 
   useEffect(() => {
     if (hasKey) loadData()
@@ -157,7 +160,7 @@ export default function Agents() {
                     >
                       {voices.length === 0 && <option>Loading voices...</option>}
                       {voices.map(v => (
-                        <option key={v.voice_id} value={v.voice_id}>{v.name} — {v.labels?.gender || 'Voice'}</option>
+                        <option key={v.voice_id} value={v.voice_id}>{v.name} -- {v.labels?.gender || 'Voice'}</option>
                       ))}
                     </select>
                   </div>

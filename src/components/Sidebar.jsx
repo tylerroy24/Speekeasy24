@@ -19,7 +19,7 @@ const navItems = [
 export default function Sidebar() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user, logout } = useAuth()
+  const { user, logout, userName, userEmail } = useAuth()
 
   return (
     <aside className="w-60 min-h-screen bg-surface border-r border-border flex flex-col">
@@ -38,7 +38,7 @@ export default function Sidebar() {
       {/* User badge */}
       <div className="px-4 py-3 mx-3 my-3 rounded-xl bg-panel border border-border">
         <p className="text-xs font-mono text-ghost uppercase tracking-widest mb-0.5">Workspace</p>
-        <p className="text-sm text-cream font-medium truncate">{user?.email || 'user@example.com'}</p>
+        <p className="text-sm text-cream font-medium truncate">{userEmail || user?.email || 'user@speekeasy.io'}</p>
         <div className="flex items-center gap-1.5 mt-1.5">
           <span className="w-1.5 h-1.5 rounded-full bg-lime status-pulse" />
           <span className="text-xs text-ghost font-mono">Active</span>

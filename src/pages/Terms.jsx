@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import { useSEO, schema } from '../hooks/useSEO'
 import Nav from '../components/Nav'
 
 const LAST_UPDATED = 'April 19, 2026'
@@ -36,10 +37,14 @@ function UL({ items }) {
 }
 
 export default function Terms() {
-  useEffect(() => {
-    document.title = 'Terms of Service -- Speekeasy'
-    window.scrollTo(0, 0)
-  }, [])
+  useSEO({
+    title: 'Terms of Service',
+    description: 'Read the Speekeasy Terms of Service. Understand your rights and responsibilities when using our AI voice agent platform.',
+    canonical: '/terms',
+    structuredData: schema.webPage('Terms of Service', 'Speekeasy Terms of Service', '/terms'),
+  })
+
+  useEffect(() => { window.scrollTo(0, 0) }, [])
 
   return (
     <div className="min-h-screen bg-ink">

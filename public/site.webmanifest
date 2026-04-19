@@ -1,0 +1,21 @@
+{
+  "name": "Speekeasy",
+  "short_name": "Speekeasy",
+  "description": "AI-powered voice agents for inbound and outbound calls",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0A0A0F",
+  "theme_color": "#C8F53A",
+  "icons": [
+    {
+      "src": "/favicon-32x32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}

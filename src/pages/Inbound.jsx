@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import { Button, Card, Badge, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
-import { storage } from '../lib/storage'
+import { useAuth } from '../context/AuthContext'
+import { useSEO } from '../hooks/useSEO'
 import {
   PhoneIncoming, Phone, Bot, RefreshCw, AlertCircle,
   Check, ChevronRight, Info, ExternalLink,
@@ -10,7 +11,8 @@ import {
 import { clsx } from 'clsx'
 
 function PhoneNumberCard({ number, agents, onAssign, saving }) {
-  const currentAgentId = (number.assigned_agent && number.assigned_agent.agent_id) || number.agent_id || ''
+  // ElevenLabs returns assigned_agent: { agent_id, agent_name } not agent_id directly
+  const currentAgentId = number.assigned_agent?.agent_id || number.agent_id || ''
   const [selected, setSelected] = useState(currentAgentId)
   const assigned = agents.find(a => a.agent_id === currentAgentId)
   const hasChanged = selected !== currentAgentId
@@ -86,9 +88,12 @@ function PhoneNumberCard({ number, agents, onAssign, saving }) {
 }
 
 export default function Inbound() {
-  const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(settings.elevenLabsKey)
-  const hasKey = !!settings.elevenLabsKey
+  useSEO({ title: "Inbound Calls", description: "Configure inbound call routing for your AI agents.", noIndex: true })
+
+  const { user } = useAuth()
+  const token = user?.access_token || null
+  const el = useElevenLabs(token)
+  const hasKey = true
 
   const [phoneNumbers, setPhoneNumbers] = useState([])
   const [agents, setAgents] = useState([])
@@ -152,7 +157,7 @@ export default function Inbound() {
                 Refresh
               </Button>
               <a
-                href="https://elevenlabs.io"
+                href="https://elevenlabs.io/app/conversational-ai/phone-numbers"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -225,7 +230,7 @@ export default function Inbound() {
               </p>
               <div className="flex gap-3">
                 <a
-                  href="https://elevenlabs.io"
+                  href="https://elevenlabs.io/app/conversational-ai/phone-numbers"
                   target="_blank"
                   rel="noreferrer"
                 >

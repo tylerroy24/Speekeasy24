@@ -3,6 +3,7 @@ import Sidebar from '../components/Sidebar'
 import { Card, Badge, Waveform } from '../components/UI'
 import { useCallEvents } from '../hooks/useCallEvents'
 import { storage } from '../lib/storage'
+import { useSEO } from '../hooks/useSEO'
 import {
   Activity, PhoneCall, PhoneIncoming, PhoneOff, Clock,
   Wifi, WifiOff, MessageSquare, ChevronDown, ChevronUp,
@@ -162,6 +163,8 @@ function CallCard({ call, onDismiss }) {
 }
 
 export default function Monitor() {
+  useSEO({ title: "Live Monitor", description: "Monitor active calls and view real-time call events.", noIndex: true })
+
   const [calls, setCalls] = useState([])
   const [eventLog, setEventLog] = useState([])
 

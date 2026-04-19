@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import Nav from '../components/Nav'
 import { Waveform } from '../components/UI'
 import ChatBot from '../components/ChatBot'
+import { useSEO, schema } from '../hooks/useSEO'
 import { ChevronRight, Phone, Bot, BarChart3, Shield, Zap, Globe, Check, ArrowRight } from 'lucide-react'
 
 const stats = [
@@ -50,7 +51,6 @@ const useCases = [
   { label: 'Appointment Reminders', desc: 'Cut no-shows with automated reminder calls.' },
   { label: 'Sales Outreach', desc: 'Prospect at scale without growing your team.' },
   { label: 'Customer Surveys', desc: 'Collect feedback from every customer automatically.' },
-  { label: 'Payment Collection', desc: 'Follow up on overdue accounts with empathy.' },
   { label: 'Event Invitations', desc: 'Personal invites that feel like they are from a human.' },
 ]
 
@@ -87,9 +87,22 @@ const plans = [
 export default function Landing() {
   const heroRef = useRef(null)
 
-  useEffect(() => {
-    document.title = 'Speekeasy -- AI Voice Agents That Close'
-  }, [])
+  useSEO({
+    canonical: '/',
+    structuredData: {
+      '@context': 'https://schema.org',
+      '@graph': [
+        schema.softwareApp(),
+        schema.faqPage([
+          { q: 'What is Speekeasy?', a: 'Speekeasy is an AI-powered voice agent platform that lets businesses create and deploy AI phone agents for inbound and outbound calls. It automates lead qualification, appointment reminders, sales outreach, and more.' },
+          { q: 'How much does Speekeasy cost?', a: 'Speekeasy offers a Starter plan at $49/month (200 minutes), a Growth plan at $199/month (1,000 minutes), and custom Enterprise pricing for unlimited usage.' },
+          { q: 'Can I make outbound calls with AI?', a: 'Yes. Speekeasy supports fully automated outbound calling using AI voice agents. You can call individual numbers or upload a CSV list for bulk campaigns.' },
+          { q: 'Does Speekeasy support inbound calls?', a: 'Yes. You can assign an AI agent to your phone number so it automatically answers all incoming calls 24/7.' },
+          { q: 'How do I get started?', a: 'Sign up for free, connect your account, create an AI agent in plain English, and make your first call within 10 minutes.' },
+        ]),
+      ],
+    },
+  })
 
   return (
     <div className="min-h-screen mesh-bg noise">
@@ -98,10 +111,6 @@ export default function Landing() {
       {/* Hero */}
       <section className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
-          <div className="animate-on-load inline-flex items-center gap-2 bg-lime/10 border border-lime/20 rounded-full px-4 py-1.5 mb-8">
-            <span className="w-1.5 h-1.5 rounded-full bg-lime status-pulse" />
-            <span className="text-xs font-mono text-lime uppercase tracking-widest">Powered by AI voice technology</span>
-          </div>
 
           <h1 className="animate-on-load delay-100 font-display font-extrabold text-5xl md:text-7xl text-cream leading-[1.05] tracking-tight mb-6">
             AI agents that{' '}
