@@ -3,12 +3,13 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 import { clsx } from 'clsx'
 import {
-  Phone, PhoneIncoming, Activity, Bot, BarChart3, Settings, LogOut, ChevronRight, Zap
+  Phone, PhoneIncoming, Activity, Bot, BarChart3, Settings, LogOut, ChevronRight, Zap, FileSpreadsheet
 } from 'lucide-react'
 
 const navItems = [
   { icon: Phone, label: 'Outbound Calls', path: '/dashboard' },
   { icon: PhoneIncoming, label: 'Inbound Calls', path: '/dashboard/inbound' },
+  { icon: FileSpreadsheet, label: 'Bulk Caller', path: '/dashboard/bulk' },
   { icon: Activity, label: 'Live Monitor', path: '/dashboard/monitor' },
   { icon: Bot, label: 'Agents', path: '/dashboard/agents' },
   { icon: BarChart3, label: 'Call History', path: '/dashboard/history' },

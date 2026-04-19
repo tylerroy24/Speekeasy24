@@ -152,7 +152,7 @@ export default function Inbound() {
                 Refresh
               </Button>
               <a
-                href="https://elevenlabs.io/app/conversational-ai/phone-numbers"
+                href="https://elevenlabs.io"
                 target="_blank"
                 rel="noreferrer"
               >
@@ -225,7 +225,7 @@ export default function Inbound() {
               </p>
               <div className="flex gap-3">
                 <a
-                  href="https://elevenlabs.io/app/conversational-ai/phone-numbers"
+                  href="https://elevenlabs.io"
                   target="_blank"
                   rel="noreferrer"
                 >

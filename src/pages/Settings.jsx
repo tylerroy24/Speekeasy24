@@ -4,7 +4,7 @@ import { Button, Input, Card } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
-import { Key, User, Bell, Shield, Check, X, Eye, EyeOff, ExternalLink, AlertCircle } from 'lucide-react'
+import { Key, User, Bell, Shield, Check, X, Eye, EyeOff, ExternalLink, AlertCircle, Webhook, Copy } from 'lucide-react'
 import { clsx } from 'clsx'
 
 function Section({ title, desc, icon: Icon, children }) {
@@ -48,28 +48,40 @@ export default function Settings() {
 
   const el = useElevenLabs(elKey)
 
+  const [keyError, setKeyError] = useState('')
+
   const validateAndSaveKey = async () => {
-    if (!elKey.trim()) {
-      setKeyStatus('empty')
-      return
-    }
+    if (!elKey.trim()) { setKeyStatus('empty'); return }
     setValidating(true)
     setKeyStatus(null)
+    setKeyError('')
     try {
-      const valid = await el.validateKey()
-      if (valid) {
-        const updated = { ...settings, elevenLabsKey: elKey.trim() }
-        storage.saveSettings(updated)
-        setSettings(updated)
+      const result = await el.validateKey()
+      if (result.valid) {
+        saveKey()
         setKeyStatus('valid')
       } else {
+        setKeyError(result.error || 'Invalid key')
         setKeyStatus('invalid')
       }
-    } catch {
+    } catch (e) {
+      setKeyError(e.message)
       setKeyStatus('invalid')
     } finally {
       setValidating(false)
     }
+  }
+
+  const saveKey = () => {
+    const updated = { ...settings, elevenLabsKey: elKey.trim() }
+    storage.saveSettings(updated)
+    setSettings(updated)
+  }
+
+  const saveKeyAnyway = () => {
+    saveKey()
+    setKeyStatus('valid')
+    setKeyError('')
   }
 
   const removeKey = () => {
@@ -114,8 +126,8 @@ export default function Settings() {
 
           {/* ElevenLabs API */}
           <Section
-            title="ElevenLabs API"
-            desc="Connect your ElevenLabs account to enable voice agents and outbound calls."
+            title="Voice AI API"
+            desc="Connect your voice AI account to enable agents and outbound calls."
             icon={Key}
           >
             <div className="space-y-4">
@@ -161,8 +173,17 @@ export default function Settings() {
                   </div>
                 )}
                 {keyStatus === 'invalid' && (
-                  <div className="flex items-center gap-1.5 text-xs text-coral">
-                    <X size={12} /> Invalid key — check your ElevenLabs dashboard
+                  <div className="flex flex-col gap-2">
+                    <div className="flex items-start gap-1.5 text-xs text-coral">
+                      <X size={12} className="mt-0.5 flex-shrink-0" />
+                      <span>Validation failed: {keyError || 'Could not reach the voice API'}. This may be a browser CORS issue.</span>
+                    </div>
+                    <button
+                      onClick={saveKeyAnyway}
+                      className="text-xs text-lime hover:text-lime-dim underline text-left font-mono"
+                    >
+                      Save key anyway and test by creating an agent →
+                    </button>
                   </div>
                 )}
                 {keyStatus === 'empty' && (
@@ -190,8 +211,8 @@ export default function Settings() {
                 <p className="text-xs font-mono text-ghost uppercase tracking-widest mb-3">Setup checklist</p>
                 <ul className="space-y-2.5">
                   {[
-                    { done: !!settings.elevenLabsKey, label: 'ElevenLabs API key connected' },
-                    { done: false, label: 'Phone number purchased in ElevenLabs dashboard' },
+                    { done: !!settings.elevenLabsKey, label: 'Voice AI API key connected' },
+                    { done: false, label: 'Phone number purchased and linked' },
                     { done: false, label: 'Twilio account linked (for outbound calling)' },
                     { done: false, label: 'First AI agent created' },
                   ].map(({ done, label }) => (
@@ -209,7 +230,7 @@ export default function Settings() {
 
               <div className="p-4 bg-violet/5 border border-violet/20 rounded-xl text-xs text-ghost leading-relaxed">
                 <p className="font-semibold text-cream mb-1">How outbound calling works</p>
-                Speekeasy uses ElevenLabs Conversational AI + their Twilio integration to make outbound calls. You'll need to: (1) create an ElevenLabs account, (2) purchase a phone number in their dashboard, and (3) link your Twilio account. Then paste your ElevenLabs API key above and you're ready to go.
+                Speekeasy uses conversational AI + Twilio to make outbound calls. You'll need to: (1) create a voice AI account, (2) purchase a phone number, and (3) link your Twilio account. Then paste your API key above and you're ready to go.
                 {' '}<a href="https://elevenlabs.io/docs/conversational-ai/phone-calls/twilio" target="_blank" rel="noreferrer" className="text-violet hover:text-cream underline">Read the docs →</a>
               </div>
             </div>
@@ -274,6 +295,65 @@ export default function Settings() {
                   </button>
                 </div>
               ))}
+            </div>
+          </Section>
+
+          {/* Webhooks */}
+          <Section
+            title="Webhooks"
+            desc="Receive real-time call events in your backend."
+            icon={Webhook}
+          >
+            <div className="space-y-4">
+              <div className="p-4 bg-panel rounded-xl border border-border space-y-3">
+                <p className="text-xs font-mono text-ghost uppercase tracking-widest">Your webhook URLs</p>
+                {[
+                  { label: 'Post-call webhook', url: 'http://localhost:3001/webhooks/elevenlabs' },
+                  { label: 'Twilio status callback', url: 'http://localhost:3001/webhooks/twilio/status' },
+                ].map(({ label, url }) => (
+                  <div key={label}>
+                    <p className="text-xs text-subtle mb-1.5">{label}</p>
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 text-xs font-mono text-lime bg-ink border border-border rounded-lg px-3 py-2 overflow-x-auto">
+                        {url}
+                      </code>
+                      <button
+                        onClick={() => navigator.clipboard.writeText(url)}
+                        className="p-2 text-subtle hover:text-cream hover:bg-muted rounded-lg transition-all flex-shrink-0"
+                        title="Copy"
+                      >
+                        <Copy size={13} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="p-4 bg-violet/5 border border-violet/20 rounded-xl text-xs text-ghost leading-relaxed space-y-2">
+                <p className="font-semibold text-cream">Making webhooks public</p>
+                <p>In development, use <a href="https://ngrok.com" target="_blank" rel="noreferrer" className="text-violet underline">ngrok</a> to expose your local backend:</p>
+                <code className="block bg-ink border border-border rounded-lg px-3 py-2 text-lime font-mono">
+                  ngrok http 3001
+                </code>
+                <p>Copy the <span className="text-cream">https://xxxx.ngrok.io</span> URL and paste it into:</p>
+                <ul className="list-disc list-inside space-y-1 text-subtle">
+                  <li>Voice AI dashboard: <span className="text-cream">Conversational AI &rarr; Agents &rarr; [agent] &rarr; Webhooks</span></li>
+                  <li>Twilio console: <span className="text-cream">Phone Numbers &rarr; [number] &rarr; Voice &rarr; Status callback</span></li>
+                </ul>
+              </div>
+
+              <div className="flex gap-2">
+                <a href="https://ngrok.com/download" target="_blank" rel="noreferrer">
+                  <Button variant="secondary" size="sm">
+                    <ExternalLink size={12} /> Download ngrok
+                  </Button>
+                </a>
+                <a href="https://elevenlabs.io/docs/conversational-ai/guides/custom-llm/webhook" target="_blank" rel="noreferrer">
+                  <Button variant="secondary" size="sm">
+                    <ExternalLink size={12} /> Webhook docs
+                  </Button>
+                </a>
+              </div>
             </div>
           </Section>
 

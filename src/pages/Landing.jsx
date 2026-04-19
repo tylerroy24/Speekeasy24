@@ -2,12 +2,13 @@ import React, { useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import Nav from '../components/Nav'
 import { Waveform } from '../components/UI'
+import ChatBot from '../components/ChatBot'
 import { ChevronRight, Phone, Bot, BarChart3, Shield, Zap, Globe, Check, ArrowRight } from 'lucide-react'
 
 const stats = [
   { value: '< 400ms', label: 'Avg response latency' },
   { value: '99.9%', label: 'Uptime guaranteed' },
-  { value: '50+', label: 'ElevenLabs voices' },
+  { value: '50+', label: '50+ AI voices' },
   { value: '24/7', label: 'Calls, no days off' },
 ]
 
@@ -15,17 +16,17 @@ const features = [
   {
     icon: Phone,
     title: 'Outbound Calling at Scale',
-    desc: 'Launch thousands of personalized outbound calls simultaneously. Your AI agent handles objections, answers questions, and books meetings — autonomously.',
+    desc: 'Launch thousands of personalized outbound calls simultaneously. Your AI agent handles objections, answers questions, and books meetings -- autonomously.',
   },
   {
     icon: Bot,
     title: 'Human-grade Voice AI',
-    desc: 'Powered by ElevenLabs, the most realistic text-to-speech available. Choose from 50+ studio-quality voices or clone your own.',
+    desc: 'Studio-quality AI voices that sound indistinguishable from humans. Choose from 50+ voices or clone your own in minutes.',
   },
   {
     icon: BarChart3,
     title: 'Real-time Analytics',
-    desc: 'Track call outcomes, listen to recordings, read full transcripts, and measure conversion rates — all from one dashboard.',
+    desc: 'Track call outcomes, listen to recordings, read full transcripts, and measure conversion rates -- all from one dashboard.',
   },
   {
     icon: Zap,
@@ -59,7 +60,7 @@ const plans = [
     price: '$49',
     per: '/month',
     desc: 'For solo operators getting started with AI calling.',
-    features: ['200 minutes/month', '2 AI agents', 'ElevenLabs voices', 'Call transcripts', 'Email support'],
+    features: ['200 minutes/month', '2 AI agents', '50+ AI voices', 'Call transcripts', 'Email support'],
     cta: 'Start free trial',
     highlighted: false,
   },
@@ -87,7 +88,7 @@ export default function Landing() {
   const heroRef = useRef(null)
 
   useEffect(() => {
-    document.title = 'Speekeasy — AI Voice Agents That Close'
+    document.title = 'Speekeasy -- AI Voice Agents That Close'
   }, [])
 
   return (
@@ -99,7 +100,7 @@ export default function Landing() {
         <div className="text-center max-w-4xl mx-auto">
           <div className="animate-on-load inline-flex items-center gap-2 bg-lime/10 border border-lime/20 rounded-full px-4 py-1.5 mb-8">
             <span className="w-1.5 h-1.5 rounded-full bg-lime status-pulse" />
-            <span className="text-xs font-mono text-lime uppercase tracking-widest">Powered by ElevenLabs voice AI</span>
+            <span className="text-xs font-mono text-lime uppercase tracking-widest">Powered by AI voice technology</span>
           </div>
 
           <h1 className="animate-on-load delay-100 font-display font-extrabold text-5xl md:text-7xl text-cream leading-[1.05] tracking-tight mb-6">
@@ -112,7 +113,7 @@ export default function Landing() {
           </h1>
 
           <p className="animate-on-load delay-200 text-lg md:text-xl text-ghost max-w-2xl mx-auto mb-10 leading-relaxed">
-            Deploy human-sounding voice agents in minutes. Speekeasy handles your outbound calls 24/7 — so your team focuses on what matters most.
+            Deploy human-sounding voice agents in minutes. Speekeasy handles your outbound calls 24/7 -- so your team focuses on what matters most.
           </p>
 
           <div className="animate-on-load delay-300 flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -245,7 +246,7 @@ export default function Landing() {
           </div>
           <div className="grid md:grid-cols-3 gap-8">
             {[
-              { num: '01', title: 'Create your agent', desc: 'Describe your agent\'s persona, goal, and script in plain English. Pick a voice from ElevenLabs\' library.' },
+              { num: '01', title: 'Create your agent', desc: 'Describe your agent\'s persona, goal, and script in plain English. Pick from 50+ studio-quality AI voices.' },
               { num: '02', title: 'Upload your list', desc: 'Paste phone numbers or upload a CSV. Set calling windows, retry logic, and max call duration.' },
               { num: '03', title: 'Launch & monitor', desc: 'Hit send. Watch calls roll in real-time. Review transcripts, recordings, and outcomes automatically.' },
             ].map(({ num, title, desc }) => (
@@ -344,7 +345,7 @@ export default function Landing() {
             to="/register"
             className="inline-flex items-center gap-2 bg-lime text-ink font-display font-bold text-lg px-10 py-5 rounded-xl hover:bg-lime-dim transition-all lime-glow"
           >
-            Start for free — no card required
+            Start for free -- no card required
             <ChevronRight size={18} />
           </Link>
         </div>
@@ -362,13 +363,17 @@ export default function Landing() {
             <span className="font-display font-bold text-cream">speekeasy</span>
           </div>
           <div className="flex gap-8">
-            {['Privacy', 'Terms', 'Blog', 'Docs', 'Status'].map(l => (
-              <a key={l} href="#" className="text-sm text-subtle hover:text-cream transition-colors">{l}</a>
-            ))}
+            <Link to="/privacy" className="text-sm text-subtle hover:text-cream transition-colors">Privacy</Link>
+            <Link to="/terms" className="text-sm text-subtle hover:text-cream transition-colors">Terms</Link>
+            <Link to="/contact" className="text-sm text-subtle hover:text-cream transition-colors">Contact</Link>
+            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Blog</a>
+            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Docs</a>
+            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Status</a>
           </div>
-          <p className="text-sm text-subtle font-mono">© 2026 Speekeasy, Inc.</p>
+          <p className="text-sm text-subtle font-mono">2026 Speekeasy, Inc.</p>
         </div>
       </footer>
+      <ChatBot />
     </div>
   )
 }
