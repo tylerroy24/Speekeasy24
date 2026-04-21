@@ -31,7 +31,7 @@ const CRM_PRESETS = [
     icon: '💬',
     desc: 'Post call summaries to a Slack channel',
     docsUrl: 'https://api.slack.com/messaging/webhooks',
-    defaultEvents: ['call.completed', 'sms.received'],
+    defaultEvents: ['call.completed'],
     headerHint: 'Use your Slack Incoming Webhook URL directly',
   },
   {
@@ -55,7 +55,6 @@ const CRM_PRESETS = [
 const ALL_EVENTS = [
   { id: 'call.completed', label: 'Call completed', desc: 'Fired when a call ends with transcript and sentiment' },
   { id: 'call.transferred', label: 'Call transferred', desc: 'Fired when a call is transferred to a human' },
-  { id: 'sms.received', label: 'SMS received', desc: 'Fired when an inbound SMS arrives' },
   { id: 'twilio.status', label: 'Call status change', desc: 'Fired on every Twilio status update' },
 ]
 
