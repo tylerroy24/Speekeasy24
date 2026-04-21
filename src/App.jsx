@@ -11,7 +11,6 @@ import Terms from './pages/Terms'
 import Contact from './pages/Contact'
 import Dashboard from './pages/Dashboard'
 import Inbound from './pages/Inbound'
-import BulkCall from './pages/BulkCall'
 import Monitor from './pages/Monitor'
 import Analytics from './pages/Analytics'
 import SMS from './pages/SMS'
@@ -36,7 +35,6 @@ export default function App() {
           {/* Protected */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/dashboard/inbound" element={<ProtectedRoute><Inbound /></ProtectedRoute>} />
-          <Route path="/dashboard/bulk" element={<ProtectedRoute><BulkCall /></ProtectedRoute>} />
           <Route path="/dashboard/monitor" element={<ProtectedRoute><Monitor /></ProtectedRoute>} />
           <Route path="/dashboard/analytics" element={<ProtectedRoute><Analytics /></ProtectedRoute>} />
           <Route path="/dashboard/sms" element={<ProtectedRoute><SMS /></ProtectedRoute>} />

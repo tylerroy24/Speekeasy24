@@ -111,13 +111,10 @@ export default function Landing() {
       <section className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
 
-          <h1 className="animate-on-load delay-100 font-display font-extrabold text-5xl md:text-7xl text-cream leading-[1.05] tracking-tight mb-6">
-            AI agents that{' '}
-            <span className="text-lime lime-text-glow">call</span>,{' '}
-            <span className="text-lime lime-text-glow">qualify</span>,{' '}
+          <h1 className="animate-on-load delay-100 font-display font-extrabold text-4xl md:text-6xl text-cream leading-[1.05] tracking-tight mb-6">
+            AI agents that <span className="text-lime lime-text-glow">call</span>, <span className="text-lime lime-text-glow">qualify</span>, <span className="text-lime lime-text-glow">close</span>
             <br className="hidden md:block" />
-            and{' '}
-            <span className="text-lime lime-text-glow">close</span>.
+            and <span className="text-lime lime-text-glow">automate</span>.
           </h1>
 
           <p className="animate-on-load delay-200 text-lg md:text-xl text-ghost max-w-2xl mx-auto mb-10 leading-relaxed">

@@ -150,6 +150,87 @@ async function parseContactFile(file) {
   return results
 }
 
+// ── Campaign Scheduler ─────────────────────────────────────
+function CampaignScheduler({ contacts, delayMs, setDelayMs }) {
+  const totalCalls = contacts.filter(c => c.status === 'pending').length
+  const [days, setDays] = React.useState(0)
+  const [hours, setHours] = React.useState(0)
+  const [minutes, setMinutes] = React.useState(5)
+  const [mode, setMode] = React.useState('spread')
+
+  React.useEffect(() => {
+    if (mode === 'spread' && totalCalls > 1) {
+      const totalMs = ((days * 24 * 60) + (hours * 60) + minutes) * 60 * 1000
+      const computed = Math.max(1000, Math.floor(totalMs / totalCalls))
+      setDelayMs(computed)
+    }
+  }, [days, hours, minutes, totalCalls, mode])
+
+  const totalWindowMs = ((days * 24 * 60) + (hours * 60) + minutes) * 60 * 1000
+  const perCallSecs = totalCalls > 1 ? Math.round(delayMs / 1000) : 0
+  const estimatedEnd = totalCalls > 0 && totalWindowMs > 0
+    ? new Date(Date.now() + totalWindowMs).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : null
+
+  const inputCls = "w-full bg-ink/80 border border-border text-cream px-3 py-2 rounded-lg text-sm font-mono text-center focus:outline-none focus:border-lime appearance-none"
+
+  return (
+    <div className="space-y-3 p-4 rounded-xl border border-border bg-panel">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Clock size={13} className="text-lime" />
+          <span className="text-xs font-mono text-ghost uppercase tracking-widest">Campaign Schedule</span>
+        </div>
+        <div className="flex items-center gap-1 bg-muted rounded-lg p-0.5">
+          {[['spread', 'Auto-spread'], ['manual', 'Manual']].map(([val, label]) => (
+            <button key={val} onClick={() => setMode(val)}
+              className={clsx('text-xs font-mono px-2.5 py-1 rounded-md transition-all',
+                mode === val ? 'bg-ink text-lime border border-lime/20' : 'text-subtle hover:text-ghost')}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+      {mode === 'spread' ? (
+        <>
+          <p className="text-xs text-subtle">Set a total window — calls will be spread evenly across it.</p>
+          <div className="grid grid-cols-3 gap-2">
+            {[['Days', days, setDays, 30], ['Hours', hours, setHours, 23], ['Minutes', minutes, setMinutes, 59]].map(([label, value, set, max]) => (
+              <div key={label}>
+                <label className="text-xs font-mono text-ghost block text-center mb-1">{label}</label>
+                <input type="number" min={0} max={max} value={value}
+                  onChange={e => set(Math.max(0, Math.min(max, Number(e.target.value))))}
+                  className={inputCls} />
+              </div>
+            ))}
+          </div>
+          {totalCalls > 0 && totalWindowMs > 0 && (
+            <div className="flex items-center justify-between p-2.5 rounded-lg bg-lime/5 border border-lime/10">
+              <div className="text-xs text-ghost"><span className="text-cream font-mono">{totalCalls}</span> calls · <span className="text-cream font-mono">{perCallSecs}s</span> apart</div>
+              {estimatedEnd && <div className="text-xs font-mono text-subtle">ends ~{estimatedEnd}</div>}
+            </div>
+          )}
+          {totalWindowMs === 0 && <p className="text-xs text-coral">Set a time window greater than 0.</p>}
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-subtle">Set a fixed delay between each call.</p>
+          <select value={delayMs} onChange={e => setDelayMs(Number(e.target.value))}
+            className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-lime appearance-none">
+            <option value={1000}>1 second</option>
+            <option value={3000}>3 seconds</option>
+            <option value={5000}>5 seconds</option>
+            <option value={10000}>10 seconds</option>
+            <option value={30000}>30 seconds</option>
+            <option value={60000}>1 minute</option>
+            <option value={300000}>5 minutes</option>
+          </select>
+        </>
+      )}
+    </div>
+  )
+}
+
 function QuickDial({ agents, phoneNumbers, onCall, calling, hasKey }) {
   const [tab, setTab] = useState('single')
   const [toNumber, setToNumber] = useState('')
@@ -273,12 +354,7 @@ function QuickDial({ agents, phoneNumbers, onCall, calling, hasKey }) {
                   <button onClick={() => { setContacts([]); setFileName('') }} className="text-subtle hover:text-coral transition-colors"><X size={13} /></button>
                 </div>
                 {contacts.length > 0 && <div className="h-1.5 bg-muted rounded-full overflow-hidden"><div className="h-full bg-lime rounded-full transition-all" style={{ width: Math.round(((completed + failed) / contacts.length) * 100) + '%' }} /></div>}
-                <div>
-                  <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Delay between calls</label>
-                  <select value={delayMs} onChange={e => setDelayMs(Number(e.target.value))} className="w-full bg-ink/80 border border-border text-cream px-3 py-2 rounded-lg text-sm focus:outline-none focus:border-lime appearance-none">
-                    <option value={1000}>1 second</option><option value={3000}>3 seconds</option><option value={5000}>5 seconds</option><option value={10000}>10 seconds</option>
-                  </select>
-                </div>
+                <CampaignScheduler contacts={contacts} delayMs={delayMs} setDelayMs={setDelayMs} />
                 <div className="flex items-start gap-2.5 p-3 rounded-xl border border-border bg-panel">
                   <input type="checkbox" id="tcpa-dash" checked={tcpa} onChange={e => setTcpa(e.target.checked)} className="mt-0.5 accent-lime" />
                   <label htmlFor="tcpa-dash" className="text-xs text-ghost leading-relaxed cursor-pointer">I confirm I have consent to contact these individuals (TCPA)</label>
