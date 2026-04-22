@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import { Button, Input, Textarea, Select, Card, Badge, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
+import { storage } from '../lib/storage'
 import { useAuth } from '../context/AuthContext'
 import { useSEO } from '../hooks/useSEO'
 import { Bot, Plus, Trash2, X, Check, AlertCircle, ChevronRight, Mic } from 'lucide-react'
@@ -16,8 +17,8 @@ Keep responses brief and conversational -- this is a phone call, not an essay.`
 export default function Agents() {
   useSEO({ title: "AI Agents", description: "Create and manage your AI voice agents.", noIndex: true })
 
-  const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(token)
+  const [settings] = useState(storage.getSettings())
+  const el = useElevenLabs(settings.elevenLabsKey)
 
   const [agents, setAgents] = useState([])
   const [voices, setVoices] = useState([])

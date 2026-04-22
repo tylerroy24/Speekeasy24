@@ -7,10 +7,10 @@ import { Phone, PhoneCall, PhoneIncoming, PhoneOff, Clock, CheckCircle, Search, 
 import { clsx } from 'clsx'
 
 const STATUS_MAP = {
-  calling: { label: 'In Call', variant: 'lime', icon: PhoneCall },
-  completed: { label: 'Completed', variant: 'violet', icon: CheckCircle },
-  failed: { label: 'Failed', variant: 'coral', icon: PhoneOff },
-  initiated: { label: 'Initiated', variant: 'lime', icon: Clock },
+  calling:   { label: 'In Call',   variant: 'lime',   icon: PhoneCall },
+  completed: { label: 'Connected', variant: 'violet', icon: CheckCircle },
+  failed:    { label: 'No Answer', variant: 'coral',  icon: PhoneOff },
+  initiated: { label: 'Initiated', variant: 'lime',   icon: Clock },
 }
 
 function formatDate(iso) {
@@ -57,10 +57,11 @@ export default function History() {
 
   const stats = {
     total: calls.length,
-    completed: calls.filter(c => c.status === 'completed').length,
-    failed: calls.filter(c => c.status === 'failed').length,
+    connected: calls.filter(c => c.status === 'completed').length,
+    noAnswer: calls.filter(c => c.status === 'failed').length,
     today: calls.filter(c => new Date(c.timestamp).toDateString() === new Date().toDateString()).length,
   }
+  const connectRate = stats.total > 0 ? Math.round((stats.connected / stats.total) * 100) : 0
 
   return (
     <div className="flex min-h-screen bg-ink">
@@ -88,14 +89,15 @@ export default function History() {
           {/* Stats row */}
           <div className="grid grid-cols-4 gap-4 mb-6">
             {[
-              { label: 'Total calls', val: stats.total, color: 'text-cream' },
-              { label: 'Completed', val: stats.completed, color: 'text-violet' },
-              { label: 'Failed', val: stats.failed, color: 'text-coral' },
-              { label: 'Today', val: stats.today, color: 'text-lime' },
-            ].map(({ label, val, color }) => (
+              { label: 'Total calls', val: stats.total, color: 'text-cream', sub: '' },
+              { label: 'Connected', val: stats.connected, color: 'text-violet', sub: 'Had a conversation' },
+              { label: 'No Answer', val: stats.noAnswer, color: 'text-coral', sub: 'Could not connect' },
+              { label: 'Connect rate', val: connectRate + '%', color: connectRate >= 50 ? 'text-lime' : 'text-coral', sub: '' },
+            ].map(({ label, val, color, sub }) => (
               <Card key={label} className="py-4">
                 <p className="text-xs font-mono text-subtle mb-1">{label}</p>
                 <p className={clsx('font-display font-bold text-3xl', color)}>{val}</p>
+                {sub && <p className="text-xs text-subtle mt-1">{sub}</p>}
               </Card>
             ))}
           </div>

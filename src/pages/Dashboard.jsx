@@ -233,7 +233,7 @@ function CampaignScheduler({ contacts, delayMs, setDelayMs }) {
 
 function QuickDial({ agents, phoneNumbers, onCall, calling, hasKey }) {
   const [tab, setTab] = useState('single')
-  const [toNumber, setToNumber] = useState('')
+  const [toNumber, setToNumber] = useState('+1 ')
   const [agentId, setAgentId] = useState('')
   const [fromId, setFromId] = useState('')
   const [msg, setMsg] = useState(null)
@@ -324,7 +324,7 @@ function QuickDial({ agents, phoneNumbers, onCall, calling, hasKey }) {
           <>
             <div>
               <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Phone number</label>
-              <input type="tel" placeholder="+1 (555) 000-0000" value={toNumber}
+              <input type="tel" placeholder="(555) 000-0000" value={toNumber}
                 onChange={e => setToNumber(formatPhone(e.target.value))}
                 onKeyDown={e => e.key === 'Enter' && handleCall()}
                 className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm font-mono focus:outline-none focus:border-lime focus:ring-2 focus:ring-lime/10" />
@@ -425,8 +425,8 @@ function InboundPanel({ phoneNumbers, agents }) {
 // ── Main Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
   const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(settings.elevenLabsKey)
-  const hasKey = !!settings.elevenLabsKey
+  const el = useElevenLabs()
+  const hasKey = true
 
   const [agents, setAgents] = useState([])
   const [phoneNumbers, setPhoneNumbers] = useState([])
@@ -453,7 +453,7 @@ export default function Dashboard() {
       let changed = false
       calls.forEach(c => {
         if ((c.status === 'calling' || c.status === 'initiated') &&
-            now - new Date(c.timestamp).getTime() > 10 * 60 * 1000) {
+            now - new Date(c.timestamp).getTime() > 2 * 60 * 1000) {
           storage.updateCall(c.id, { status: 'completed' })
           changed = true
         }
@@ -479,12 +479,15 @@ export default function Dashboard() {
 
   const handleWsEvent = useCallback((event, data) => {
     if (event === 'call.completed') {
-      storage.addCall({
-        to: data.to, from: data.from, agentId: data.agentId,
-        agentName: data.agentName || 'Agent', status: 'completed',
-        direction: data.direction || 'outbound', duration: data.duration,
-        conversationId: data.conversationId,
-      })
+      const existing = storage.getCalls().find(call =>
+        (call.status === 'calling' || call.status === 'initiated') &&
+        (call.to === data.to || call.conversationId === data.conversationId)
+      )
+      if (existing) {
+        storage.updateCall(existing.id, { status: 'completed', duration: data.duration, conversationId: data.conversationId })
+      } else {
+        storage.addCall({ to: data.to, from: data.from, agentId: data.agentId, agentName: data.agentName || 'Agent', status: 'completed', direction: data.direction || 'outbound', duration: data.duration, conversationId: data.conversationId })
+      }
       setCalls(storage.getCalls())
     }
   }, [])
