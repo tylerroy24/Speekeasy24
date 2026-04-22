@@ -16,6 +16,7 @@ import Analytics from './pages/Analytics'
 import Integrations from './pages/Integrations'
 import Agents from './pages/Agents'
 import History from './pages/History'
+import FlowBuilder from './pages/FlowBuilder'
 import Settings from './pages/Settings'
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
           <Route path="/dashboard/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
           <Route path="/dashboard/agents" element={<ProtectedRoute><Agents /></ProtectedRoute>} />
           <Route path="/dashboard/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/dashboard/flow" element={<ProtectedRoute><FlowBuilder /></ProtectedRoute>} />
           <Route path="/dashboard/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
           {/* Fallback */}
