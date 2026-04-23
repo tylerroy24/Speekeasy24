@@ -485,8 +485,6 @@ function SuccessBanner({ agentName, onClose }) {
 export default function FlowBuilder() {
   useSEO({ title: "Flow Builder", description: "Build visual call flows for your AI agents.", noIndex: true })
 
-  const [showDeploy, setShowDeploy] = useState(false)
-  const [deployedAgent, setDeployedAgent] = useState(null)
   const [nodes, setNodes] = useState(DEFAULT_NODES)
   const [edges, setEdges] = useState(DEFAULT_EDGES)
   const [selectedNode, setSelectedNode] = useState(null)
@@ -669,25 +667,15 @@ export default function FlowBuilder() {
                 Click a node input to connect
               </div>
             )}
-            {(selectedNode || selectedEdge) && (
-              <button
-                onClick={() => {
-                  if (selectedEdge) { setEdges(es=>es.filter(e=>e.id!==selectedEdge)); setSelectedEdge(null) }
-                  else if (selectedNode) {
-                    const node = nodes.find(n=>n.id===selectedNode)
-                    if (node && node.type !== 'start') {
-                      setNodes(ns=>ns.filter(n=>n.id!==selectedNode))
-                      setEdges(es=>es.filter(e=>e.from!==selectedNode&&e.to!==selectedNode))
-                      setSelectedNode(null)
-                    }
-                  }
-                }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-semibold bg-coral/10 text-coral border border-coral/30 hover:bg-coral/20 transition-all">
-                <Trash2 size={13} /> Delete {selectedEdge ? 'Connection' : 'Node'}
-              </button>
-            )}
-            <button onClick={saveFlow}
-              className={clsx('flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all', saved ? 'bg-lime/20 text-lime border border-lime/30' : 'bg-lime text-ink hover:bg-lime-dim')}>
+            <button
+              onClick={saveFlow}
+              className={clsx(
+                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-mono font-semibold transition-all',
+                saved
+                  ? 'bg-lime/20 text-lime border border-lime/30'
+                  : 'bg-lime text-ink hover:bg-lime-dim'
+              )}
+            >
               <Save size={13} /> {saved ? 'Saved!' : 'Save flow'}
             </button>
           </div>
