@@ -16,6 +16,9 @@ const server = createServer(app)
 const PORT = process.env.PORT || 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
 const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || (IS_PROD ? null : 'http://localhost:5173')
+const ALLOWED_ORIGINS = ALLOWED_ORIGIN
+  ? [ALLOWED_ORIGIN, ALLOWED_ORIGIN.replace('app.', ''), ALLOWED_ORIGIN.replace('://', '://app.')]
+  : []
 const WORKER_ID = process.env.WORKER_ID || process.pid
 
 // ── Trust proxy (required for load balancers) ──────────────────
@@ -52,7 +55,7 @@ app.use(cors({
     // Allow requests with no origin (server-to-server, curl)
     if (!origin) return callback(null, true)
     if (!IS_PROD) return callback(null, true) // Open in dev
-    if (ALLOWED_ORIGIN && origin === ALLOWED_ORIGIN) return callback(null, true)
+    if (ALLOWED_ORIGINS.length && (ALLOWED_ORIGINS.includes(origin) || !ALLOWED_ORIGIN)) return callback(null, true)
     log('CORS blocked: ' + origin)
     callback(new Error('Not allowed by CORS'))
   },

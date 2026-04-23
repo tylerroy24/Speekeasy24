@@ -375,9 +375,6 @@ export default function Landing() {
             <Link to="/privacy" className="text-sm text-subtle hover:text-cream transition-colors">Privacy</Link>
             <Link to="/terms" className="text-sm text-subtle hover:text-cream transition-colors">Terms</Link>
             <Link to="/contact" className="text-sm text-subtle hover:text-cream transition-colors">Contact</Link>
-            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Blog</a>
-            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Docs</a>
-            <a href="#" className="text-sm text-subtle hover:text-cream transition-colors">Status</a>
           </div>
           <p className="text-sm text-subtle font-mono">2026 Speekeasy, Inc.</p>
         </div>
