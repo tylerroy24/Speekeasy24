@@ -247,8 +247,8 @@ export default function Settings() {
               <div className="p-4 bg-panel rounded-xl border border-border space-y-3">
                 <p className="text-xs font-mono text-ghost uppercase tracking-widest">Your webhook URLs</p>
                 {[
-                  { label: 'Post-call webhook', url: 'http://localhost:3001/webhooks/elevenlabs' },
-                  { label: 'Twilio status callback', url: 'http://localhost:3001/webhooks/twilio/status' },
+                  { label: 'Post-call webhook', url: `${window.location.origin}/webhooks/elevenlabs` },
+                  { label: 'Twilio status callback', url: `${window.location.origin}/webhooks/twilio/status` },
                 ].map(({ label, url }) => (
                   <div key={label}>
                     <p className="text-xs text-subtle mb-1.5">{label}</p>
