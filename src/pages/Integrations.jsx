@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import DashLayout from '../components/DashLayout'
 import { Button, Card, Input } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 import { useSEO } from '../hooks/useSEO'
@@ -219,9 +219,7 @@ export default function Integrations() {
   }
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+    <DashLayout>
         <div className="sticky top-0 bg-ink/90 backdrop-blur-xl border-b border-border px-8 py-4 z-10">
           <div className="flex items-center justify-between">
             <div>
@@ -387,7 +385,6 @@ export default function Integrations() {
 }`}</pre>
           </Card>
         </div>
-      </main>
-    </div>
+    </DashLayout>
   )
 }

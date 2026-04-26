@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import DashLayout from '../components/DashLayout'
 import { Button, Input, Card } from '../components/UI'
 import { useAuth } from '../context/AuthContext'
 import { useElevenLabs } from '../lib/elevenlabs'
@@ -117,9 +117,7 @@ export default function Settings() {
     : ''
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+    <DashLayout>
         <div className="sticky top-0 bg-ink/80 backdrop-blur-xl border-b border-border px-8 py-4 z-10">
           <h1 className="font-display font-bold text-xl text-cream">Settings</h1>
           <p className="text-xs text-subtle font-mono mt-0.5">Manage your workspace configuration</p>
@@ -323,7 +321,6 @@ export default function Settings() {
             </div>
           </Section>
         </div>
-      </main>
-    </div>
+    </DashLayout>
   )
 }

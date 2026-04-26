@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import DashLayout from '../components/DashLayout'
 import { Button, Input, Textarea, Select, Card, Badge, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
@@ -96,9 +96,7 @@ export default function Agents() {
   }
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+    <DashLayout>
         <div className="sticky top-0 bg-ink/80 backdrop-blur-xl border-b border-border px-8 py-4 z-10">
           <div className="flex items-center justify-between">
             <div>
@@ -239,7 +237,6 @@ export default function Agents() {
             </div>
           )}
         </div>
-      </main>
-    </div>
+    </DashLayout>
   )
 }

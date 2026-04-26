@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import DashLayout from '../components/DashLayout'
 import { Card, Badge, Waveform } from '../components/UI'
 import { useCallEvents } from '../hooks/useCallEvents'
 import { storage } from '../lib/storage'
@@ -223,9 +223,7 @@ export default function Monitor() {
   const recentCalls = calls.filter(c => c.status !== 'active')
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
-      <main className="flex-1 overflow-auto">
+    <DashLayout>
         {/* Header */}
         <div className="sticky top-0 bg-ink/80 backdrop-blur-xl border-b border-border px-8 py-4 z-10">
           <div className="flex items-center justify-between">
@@ -361,7 +359,6 @@ export default function Monitor() {
             </Card>
           </div>
         </div>
-      </main>
-    </div>
+    </DashLayout>
   )
 }
