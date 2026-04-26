@@ -59,6 +59,8 @@ export default function Agents() {
   const handleCreate = async (e) => {
     e.preventDefault()
     if (!form.name.trim()) { setError('Agent name is required'); return }
+    const existing = agents.find(a => a.name.toLowerCase().trim() === form.name.toLowerCase().trim())
+    if (existing) { setError(`An agent named "${form.name}" already exists.`); return }
     setCreating(true)
     setError('')
     try {

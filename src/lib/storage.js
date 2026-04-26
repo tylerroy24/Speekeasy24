@@ -19,8 +19,15 @@ export const storage = {
   },
   addCall: (call) => {
     const calls = storage.getCalls()
-    calls.unshift({ ...call, id: Date.now(), timestamp: new Date().toISOString() })
-    storage.saveCalls(calls.slice(0, 200)) // keep last 200
+    const isDuplicate = calls.some(e =>
+      e.to === call.to && e.agentId === call.agentId &&
+      (e.status === 'calling' || e.status === 'initiated') &&
+      Date.now() - new Date(e.timestamp).getTime() < 60 * 1000
+    )
+    if (isDuplicate) return calls.find(e => e.to === call.to && e.agentId === call.agentId)
+    const newCall = { ...call, id: Date.now(), timestamp: new Date().toISOString() }
+    calls.unshift(newCall)
+    storage.saveCalls(calls.slice(0, 200))
     return calls[0]
   },
   updateCall: (id, updates) => {

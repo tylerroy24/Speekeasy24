@@ -137,6 +137,7 @@ async function parseContactFile(file) {
   const phoneCol = hasHeader ? first.findIndex(c => /phone|number|mobile|cell|tel/i.test(c)) : 0
   const nameCol = hasHeader ? first.findIndex(c => /name|first|contact/i.test(c)) : -1
   const results = []
+  const seen = new Set()
   dataRows.forEach((cols, i) => {
     if (!cols?.length) return
     const raw = String(cols[phoneCol >= 0 ? phoneCol : 0] || '').trim()
@@ -144,7 +145,7 @@ async function parseContactFile(file) {
     const digits = raw.replace(/\D/g, '')
     if (digits.length >= 10) {
       const e164 = digits.startsWith('1') ? '+' + digits : '+1' + digits
-      results.push({ id: Date.now() + i, name, phone: e164, status: 'pending' })
+      if (!seen.has(e164)) { seen.add(e164); results.push({ id: Date.now() + i, name, phone: e164, status: 'pending' }) }
     }
   })
   return results
