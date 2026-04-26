@@ -31,15 +31,15 @@ function makeId() { return `node_${++nodeIdCounter}_${Date.now()}` }
 
 const DEFAULT_NODES = [
   {
-    id: 'node_1', type: 'start', x: 120, y: 200,
+    id: 'node_1', type: 'start', x: 300, y: 40,
     data: { label: 'Call Start', message: '' }
   },
   {
-    id: 'node_2', type: 'message', x: 380, y: 200,
+    id: 'node_2', type: 'message', x: 300, y: 200,
     data: { label: 'Greeting', message: 'Hi! Thanks for calling. How can I help you today?' }
   },
   {
-    id: 'node_3', type: 'branch', x: 640, y: 200,
+    id: 'node_3', type: 'branch', x: 300, y: 360,
     data: { label: 'Intent Check', conditions: ['Interested', 'Not interested', 'Call back later'] }
   },
 ]
@@ -51,10 +51,10 @@ const DEFAULT_EDGES = [
 
 // ── Utility: get node port positions ──────────────────────
 function getOutputPort(node) {
-  return { x: node.x + 220, y: node.y + 44 }
+  return { x: node.x + 110, y: node.y + 88 }
 }
 function getInputPort(node) {
-  return { x: node.x, y: node.y + 44 }
+  return { x: node.x + 110, y: node.y }
 }
 
 // ── Edge SVG path ──────────────────────────────────────────
@@ -65,10 +65,9 @@ function EdgePath({ from, to, nodes, selected, onClick, id }) {
 
   const start = getOutputPort(fromNode)
   const end = getInputPort(toNode)
-  const cp1x = start.x + Math.max(60, (end.x - start.x) * 0.5)
-  const cp2x = end.x - Math.max(60, (end.x - start.x) * 0.5)
+  const cp = Math.max(60, Math.abs(end.y - start.y) * 0.5)
 
-  const d = `M ${start.x} ${start.y} C ${cp1x} ${start.y}, ${cp2x} ${end.y}, ${end.x} ${end.y}`
+  const d = `M ${start.x} ${start.y} C ${start.x} ${start.y + cp}, ${end.x} ${end.y - cp}, ${end.x} ${end.y}`
 
   return (
     <g onClick={onClick} style={{ cursor: 'pointer' }}>
@@ -142,7 +141,7 @@ function FlowNode({ node, selected, onSelect, onDragStart, onConnect, connecting
 
       {/* Input port (left) */}
       {node.type !== 'start' && (
-        <circle cx={0} cy={44} r={6}
+        <circle cx={110} cy={0} r={6}
           fill="#13131A" stroke="#2A2A3A" strokeWidth={1.5}
           style={{ cursor: isConnecting ? 'crosshair' : 'default' }}
           onClick={e => { e.stopPropagation(); if (connectingFrom) onConnect(connectingFrom, node.id) }}
@@ -151,7 +150,7 @@ function FlowNode({ node, selected, onSelect, onDragStart, onConnect, connecting
 
       {/* Output port (right) */}
       {node.type !== 'end' && (
-        <circle cx={220} cy={44} r={6}
+        <circle cx={110} cy={88} r={6}
           fill={connectingFrom === node.id ? '#C8F53A' : '#13131A'}
           stroke={connectingFrom === node.id ? '#C8F53A' : '#2A2A3A'}
           strokeWidth={1.5}
@@ -485,6 +484,8 @@ function SuccessBanner({ agentName, onClose }) {
 export default function FlowBuilder() {
   useSEO({ title: "Flow Builder", description: "Build visual call flows for your AI agents.", noIndex: true })
 
+  const [showDeploy, setShowDeploy] = useState(false)
+  const [deployedAgent, setDeployedAgent] = useState(null)
   const [nodes, setNodes] = useState(DEFAULT_NODES)
   const [edges, setEdges] = useState(DEFAULT_EDGES)
   const [selectedNode, setSelectedNode] = useState(null)
