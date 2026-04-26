@@ -108,7 +108,7 @@ export default function Landing() {
       <Nav />
 
       {/* Hero */}
-      <section className="pt-32 pb-24 px-6 max-w-7xl mx-auto">
+      <section className="pt-24 pb-16 px-4 sm:px-6 max-w-7xl mx-auto">
         <div className="text-center max-w-4xl mx-auto">
 
           <h1 className="animate-on-load delay-100 font-display font-extrabold text-4xl md:text-6xl text-cream leading-[1.05] tracking-tight mb-6">
@@ -117,7 +117,7 @@ export default function Landing() {
             and <span className="text-lime lime-text-glow">automate</span>.
           </h1>
 
-          <p className="animate-on-load delay-200 text-lg md:text-xl text-ghost max-w-2xl mx-auto mb-10 leading-relaxed">
+          <p className="animate-on-load delay-200 text-base md:text-xl text-ghost max-w-2xl mx-auto mb-8 leading-relaxed px-2">
             Deploy human-sounding voice agents in minutes. Speekeasy handles your outbound calls 24/7 -- so your team focuses on what matters most.
           </p>
 
@@ -139,7 +139,7 @@ export default function Landing() {
         </div>
 
         {/* Hero visual - fake dashboard preview */}
-        <div className="animate-on-load delay-400 mt-20 mx-auto max-w-5xl">
+        <div className="animate-on-load delay-400 mt-12 sm:mt-20 mx-auto max-w-5xl hidden sm:block">
           <div className="glass-card rounded-2xl overflow-hidden border border-border/60">
             {/* Fake browser bar */}
             <div className="flex items-center gap-2 px-4 py-3 bg-panel border-b border-border">
@@ -153,7 +153,7 @@ export default function Landing() {
               </div>
             </div>
             {/* Fake dashboard content */}
-            <div className="p-8 bg-ink/50">
+            <div className="p-4 sm:p-8 bg-ink/50">
               <div className="flex items-center justify-between mb-6">
                 <div>
                   <p className="text-xs font-mono text-ghost uppercase tracking-widest mb-1">Active Campaign</p>
@@ -164,7 +164,7 @@ export default function Landing() {
                   <span className="text-xs font-mono text-lime ml-1">LIVE · 47 calls active</span>
                 </div>
               </div>
-              <div className="grid grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
                 {[
                   { label: 'Calls Today', val: '1,284' },
                   { label: 'Connected', val: '847' },
@@ -271,7 +271,7 @@ export default function Landing() {
           <p className="text-xs font-mono text-lime uppercase tracking-widest mb-3">Use Cases</p>
           <h2 className="font-display font-bold text-4xl text-cream">Built for every outbound workflow</h2>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {useCases.map(({ label, desc }) => (
             <div key={label} className="glass-card rounded-xl p-5 hover:border-lime/20 transition-all group cursor-default">
               <div className="flex items-center gap-2 mb-2">
@@ -342,7 +342,7 @@ export default function Landing() {
       {/* CTA */}
       <section className="py-24 px-6">
         <div className="max-w-3xl mx-auto text-center">
-          <h2 className="font-display font-extrabold text-5xl md:text-6xl text-cream mb-6 leading-tight">
+          <h2 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl text-cream mb-6 leading-tight">
             Ready to let AI<br />do the talking?
           </h2>
           <p className="text-ghost text-lg mb-10">Join hundreds of teams automating their outbound calls with Speekeasy.</p>
