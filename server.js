@@ -865,12 +865,20 @@ app.post('/webhooks/twilio/status', (req, res) => {
 if (IS_PROD) {
   const distPath = path.join(__dirname, 'dist')
   app.use(express.static(distPath, {
-    setHeaders: (res) => {
+    setHeaders: (res, filePath) => {
       res.setHeader('X-Content-Type-Options', 'nosniff')
       res.setHeader('X-Frame-Options', 'DENY')
+      if (/\/assets\//.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=31536000, immutable')
+      } else {
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+      }
     },
   }))
-  app.get('*', (_req, res) => res.sendFile(path.join(distPath, 'index.html')))
+  app.get('*', (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate')
+    res.sendFile(path.join(distPath, 'index.html'))
+  })
 }
 
 // ── Global error handler ───────────────────────────────────────

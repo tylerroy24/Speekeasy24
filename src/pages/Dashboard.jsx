@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import Sidebar from '../components/Sidebar'
 import { Button, Card, Badge, Waveform, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
+import { getCached, setCached } from '../hooks/useCache'
 import { storage } from '../lib/storage'
 import { useCallEvents } from '../hooks/useCallEvents'
 import {
@@ -468,14 +469,13 @@ export default function Dashboard() {
   const load = async () => {
     setLoading(true)
     try {
+      const cachedA = getCached('agents'); const cachedN = getCached('phoneNumbers')
+      if (cachedA && cachedN) { setAgents(cachedA); setPhoneNumbers(cachedN); setLoading(false); return }
       const [a, n] = await Promise.all([el.getAgents(), el.getPhoneNumbers()])
-      setAgents(a)
-      setPhoneNumbers(n)
-    } catch (e) {
-      console.error('Failed to load:', e.message)
-    } finally {
-      setLoading(false)
-    }
+      setCached('agents', a, 60000); setCached('phoneNumbers', n, 60000)
+      setAgents(a); setPhoneNumbers(n)
+    } catch (e) { console.error('Failed to load:', e.message) }
+    finally { setLoading(false) }
   }
 
   const handleWsEvent = useCallback((event, data) => {
