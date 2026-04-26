@@ -149,6 +149,33 @@ const callLimiter = rateLimit({
 
 app.use(standardLimiter)
 
+// ── Idempotency ────────────────────────────────────────────────
+const idempotencyStore = new Map()
+const IDEMPOTENCY_TTL = 24 * 60 * 60 * 1000
+setInterval(() => {
+  const now = Date.now()
+  for (const [key, val] of idempotencyStore) {
+    if (now - val.ts > IDEMPOTENCY_TTL) idempotencyStore.delete(key)
+  }
+}, 60 * 60 * 1000)
+function idempotent(req, res, next) {
+  const key = req.headers['idempotency-key']
+  if (!key) return next()
+  if (idempotencyStore.has(key)) {
+    const cached = idempotencyStore.get(key)
+    log('Idempotency hit: ' + key.slice(0, 16) + '...')
+    res.setHeader('X-Idempotency-Replayed', 'true')
+    return res.status(cached.status).json(cached.body)
+  }
+  const originalJson = res.json.bind(res)
+  res.json = (body) => {
+    if (res.statusCode < 500) idempotencyStore.set(key, { status: res.statusCode, body, ts: Date.now() })
+    return originalJson(body)
+  }
+  next()
+}
+
+
 // ── WebSocket server with auth ─────────────────────────────────
 const wss = new WebSocketServer({ noServer: true })
 const clients = new Set()
@@ -314,7 +341,7 @@ app.get('/api/el/voices', requireAuth, (req, res) => elProxy('/voices', {}, res)
 app.get('/api/el/agents', requireAuth, (req, res) => elProxy('/convai/agents', {}, res))
 app.get('/api/el/phone-numbers', requireAuth, (req, res) => elProxy('/convai/phone-numbers', {}, res))
 
-app.post('/api/el/agents', requireAuth, (req, res) =>
+app.post('/api/el/agents', requireAuth, idempotent, (req, res) =>
   elProxy('/convai/agents/create', { method: 'POST', body: JSON.stringify(req.body) }, res)
 )
 
@@ -326,7 +353,7 @@ app.patch('/api/el/phone-numbers/:id', requireAuth, (req, res) =>
   elProxy('/convai/phone-numbers/' + req.params.id, { method: 'PATCH', body: JSON.stringify(req.body) }, res)
 )
 
-app.post('/api/el/call', requireAuth, callLimiter, (req, res) =>
+app.post('/api/el/call', requireAuth, callLimiter, idempotent, (req, res) =>
   elProxy('/convai/twilio/outbound_call', { method: 'POST', body: JSON.stringify(req.body) }, res)
 )
 
@@ -389,7 +416,7 @@ app.post('/api/voicemail/drop', requireAuth, callLimiter, async (req, res) => {
 
 // ── Feature 2: Live call transfer ─────────────────────────────
 // Transfer an active AI call to a human agent
-app.post('/api/transfer', requireAuth, async (req, res) => {
+app.post('/api/transfer', requireAuth, idempotent, async (req, res) => {
   const { callSid, toNumber, agentName } = req.body
   if (!callSid || !toNumber) return res.status(400).json({ error: 'callSid and toNumber required' })
 
@@ -430,7 +457,7 @@ app.post('/webhooks/twilio/transfer-complete', (req, res) => {
 // ── Feature 3: SMS ─────────────────────────────────────────────
 const smsLimiter = rateLimit({ windowMs: 60 * 1000, max: 30, message: { error: 'SMS rate limit exceeded' } })
 
-app.post('/api/sms/send', requireAuth, smsLimiter, async (req, res) => {
+app.post('/api/sms/send', requireAuth, smsLimiter, idempotent, async (req, res) => {
   const { to, message, from } = req.body
   if (!to || !message) return res.status(400).json({ error: 'to and message required' })
   if (message.length > 1600) return res.status(400).json({ error: 'Message too long (max 1600 chars)' })
