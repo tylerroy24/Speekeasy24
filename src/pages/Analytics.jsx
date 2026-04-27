@@ -240,16 +240,10 @@ export default function Analytics() {
                   )}
                 </div>
               ) : (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 rounded-xl bg-panel border border-border text-xs text-ghost">
-                    <ThumbsUp size={13} className="text-subtle flex-shrink-0" />
-                    Sentiment data appears here once calls complete via webhook. Make sure your ElevenLabs webhook is configured.
-                  </div>
-                  <div className="space-y-3 opacity-30">
-                    <SentimentBar label="Positive" count={65} total={100} color="text-lime" />
-                    <SentimentBar label="Neutral" count={25} total={100} color="text-subtle" />
-                    <SentimentBar label="Negative" count={10} total={100} color="text-coral" />
-                  </div>
+                <div className="flex items-center gap-3 p-4 rounded-xl bg-panel border border-border text-xs text-ghost">
+                  <ThumbsUp size={13} className="text-subtle flex-shrink-0" />
+                  Sentiment data appears here once calls complete. Make sure your ElevenLabs webhook is configured in{' '}
+                  <a href="/dashboard/settings" className="text-lime hover:underline">Settings</a>.
                 </div>
               )}
             </Card>

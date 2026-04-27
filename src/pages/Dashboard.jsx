@@ -555,7 +555,7 @@ export default function Dashboard() {
                 wsConnected ? 'bg-lime/10 border-lime/20 text-lime' : 'bg-muted border-border text-subtle'
               )}>
                 <span className={clsx('w-1.5 h-1.5 rounded-full', wsConnected ? 'bg-lime status-pulse' : 'bg-subtle')} />
-                {wsConnected ? 'Live sync' : 'Backend offline'}
+                {wsConnected ? 'Live sync' : 'Connecting…'}
               </div>
               {loading && <Spinner size={16} />}
             </div>
@@ -707,13 +707,11 @@ export default function Dashboard() {
                 <div className="p-4 rounded-xl border border-border bg-panel flex items-start gap-3">
                   <Activity size={14} className="text-subtle flex-shrink-0 mt-0.5" />
                   <div className="flex-1">
-                    <p className="text-xs font-semibold text-cream mb-1">Enable live monitoring</p>
-                    <p className="text-xs text-ghost leading-relaxed mb-2">
-                      Start the backend server in a second terminal for real-time call events, transcripts, and sentiment.
+                    <p className="text-xs font-semibold text-cream mb-1">Live sync unavailable</p>
+                    <p className="text-xs text-ghost leading-relaxed">
+                      Real-time call events and transcripts will appear here automatically once connected.
+                      Call history and stats are still available below.
                     </p>
-                    <code className="block text-xs font-mono text-lime bg-ink border border-border rounded-lg px-3 py-2">
-                      node server.js
-                    </code>
                   </div>
                 </div>
               )}

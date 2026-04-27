@@ -260,17 +260,11 @@ export default function Monitor() {
             <div className="mb-6 p-4 rounded-xl border border-coral/20 bg-coral/5 flex items-start gap-3">
               <WifiOff size={15} className="text-coral flex-shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm text-cream font-medium">Backend not connected</p>
+                <p className="text-sm text-cream font-medium">Connecting to live monitor…</p>
                 <p className="text-xs text-ghost mt-1 leading-relaxed">
-                  Start the backend server to receive live call events. In a second terminal, run:
-                </p>
-                <code className="block mt-2 text-xs font-mono bg-ink border border-border rounded-lg px-3 py-2 text-lime">
-                  npm run dev:server
-                </code>
-                <p className="text-xs text-ghost mt-2">
-                  Then expose it publicly with{' '}
-                  <a href="https://ngrok.com" target="_blank" rel="noreferrer" className="text-lime hover:underline">ngrok</a>
-                  {' '}and set the webhook URL in ElevenLabs.
+                  Live call events will appear here automatically once a connection is established.
+                  Make sure your ElevenLabs webhook is pointed at your deployment URL — you can find it in{' '}
+                  <a href="/dashboard/settings" className="text-lime hover:underline">Settings</a>.
                 </p>
               </div>
             </div>
