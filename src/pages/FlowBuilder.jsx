@@ -712,8 +712,7 @@ export default function FlowBuilder() {
 
   return (
     <DashLayout>
-      <div className="flex flex-col" style={{minHeight: 'calc(100vh - 56px)'}}>
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex flex-col" style={{height: 'calc(100vh - 56px)', overflow: 'hidden'}}>
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface z-10 flex-shrink-0">
@@ -757,10 +756,10 @@ export default function FlowBuilder() {
           </div>
         </div>
 
-        <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 min-h-0">
 
           {/* Left toolbar */}
-          <div className="w-48 border-r border-border bg-surface flex flex-col gap-1 p-3 flex-shrink-0">
+          <div className="w-48 border-r border-border bg-surface flex flex-col gap-1 p-3 flex-shrink-0 overflow-y-auto">
             <p className="text-xs font-mono text-subtle uppercase tracking-widest mb-2 px-1">Add Node</p>
             {nodeTypes.map(({ type, label, icon: Icon }) => {
               const t = NODE_TYPES[type]
@@ -789,10 +788,10 @@ export default function FlowBuilder() {
           </div>
 
           {/* Canvas */}
-          <div className="flex-1 relative overflow-hidden bg-ink" style={{ backgroundImage: 'radial-gradient(circle, #1E1E2E 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
+          <div className="flex-1 relative bg-ink" style={{ backgroundImage: 'radial-gradient(circle, #1E1E2E 1px, transparent 1px)', backgroundSize: '24px 24px' }}>
             <svg
               ref={svgRef}
-              width="100%" height="100%"
+              width="100%" height="100%" style={{display: "block", minHeight: "5000px"}}
               onMouseMove={handleMouseMove}
               onMouseUp={handleMouseUp}
               onMouseDown={handleSvgMouseDown}
@@ -842,7 +841,7 @@ export default function FlowBuilder() {
           </div>
 
           {/* Right inspector */}
-          <div className="w-64 border-l border-border bg-surface flex-shrink-0">
+          <div className="w-64 border-l border-border bg-surface flex-shrink-0 overflow-y-auto">
             <Inspector
               node={getSelectedNode()}
               onChange={updateNode}
@@ -851,7 +850,7 @@ export default function FlowBuilder() {
             />
           </div>
         </div>
-      </main>
+      </div>
       {showDeploy && (
         <DeployModal
           nodes={nodes} edges={edges} flowName={flowName}
@@ -862,6 +861,7 @@ export default function FlowBuilder() {
       {deployedAgent && (
         <SuccessBanner agentName={deployedAgent.name || flowName + ' Agent'} inboundNumber={deployedAgent.inboundNumberId} onClose={() => setDeployedAgent(null)} />
       )}
-    </div>
+    </DashLayout>
+
   )
 }
