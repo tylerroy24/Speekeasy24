@@ -1,5 +1,5 @@
 import React, { useState, useRef, useCallback, useEffect } from 'react'
-import Sidebar from '../components/Sidebar'
+import DashLayout from '../components/DashLayout'
 import { useSEO } from '../hooks/useSEO'
 import { useElevenLabs } from '../lib/elevenlabs'
 import {
@@ -371,8 +371,11 @@ function compileFlowToPrompt(nodes, edges, flowName) {
 function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
   const el = useElevenLabs()
   const [voices, setVoices] = React.useState([])
+  const [phoneNumbers, setPhoneNumbers] = React.useState([])
   const [voiceId, setVoiceId] = React.useState('')
   const [agentName, setAgentName] = React.useState(flowName + ' Agent')
+  const [inboundNumberId, setInboundNumberId] = React.useState('')
+  const [enableInbound, setEnableInbound] = React.useState(false)
   const [deploying, setDeploying] = React.useState(false)
   const [error, setError] = React.useState('')
   const [preview, setPreview] = React.useState(false)
@@ -380,6 +383,10 @@ function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
 
   React.useEffect(() => {
     el.getVoices().then(v => { setVoices(v); if (v.length) setVoiceId(v[0].voice_id) }).catch(() => {})
+    el.getPhoneNumbers().then(nums => {
+      setPhoneNumbers(nums)
+      if (nums.length) setInboundNumberId(nums[0].phone_number_id)
+    }).catch(() => {})
   }, [])
 
   const deploy = async () => {
@@ -387,12 +394,18 @@ function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
     setDeploying(true); setError('')
     try {
       const agent = await el.createAgent({ name: agentName, voiceId, prompt, firstMessage: '' })
-      onDeployed(agent)
+      // If inbound routing is enabled, assign this agent to the selected phone number
+      if (enableInbound && inboundNumberId && agent?.agent_id) {
+        await el.assignInboundAgent(inboundNumberId, agent.agent_id)
+      }
+      onDeployed(agent, enableInbound ? inboundNumberId : null)
     } catch (e) {
       setError(e.message)
       setDeploying(false)
     }
   }
+
+  const selectedNumber = phoneNumbers.find(n => n.phone_number_id === inboundNumberId)
 
   return (
     <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -431,6 +444,62 @@ function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
             }
           </div>
 
+          {/* Inbound routing */}
+          <div className="p-4 rounded-xl border border-border bg-panel space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-7 h-7 rounded-lg bg-violet/10 border border-violet/20 flex items-center justify-center">
+                  <Phone size={12} className="text-violet" />
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-cream">Route inbound calls</p>
+                  <p className="text-xs text-subtle">Assign this agent to answer incoming calls</p>
+                </div>
+              </div>
+              <button
+                onClick={() => setEnableInbound(v => !v)}
+                className={clsx(
+                  'relative w-9 h-5 rounded-full transition-colors flex-shrink-0',
+                  enableInbound ? 'bg-lime' : 'bg-muted border border-border'
+                )}
+              >
+                <span className={clsx(
+                  'absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all',
+                  enableInbound ? 'left-4' : 'left-0.5'
+                )} />
+              </button>
+            </div>
+
+            {enableInbound && (
+              <div>
+                {phoneNumbers.length === 0 ? (
+                  <div className="flex items-center gap-2 p-3 rounded-lg bg-ink/60 border border-border text-xs text-subtle">
+                    <Phone size={11} />
+                    No phone numbers found. <a href="/dashboard/inbound" className="text-lime hover:underline ml-1">Add one first.</a>
+                  </div>
+                ) : (
+                  <>
+                    <label className="text-xs font-mono text-ghost uppercase tracking-widest block mb-1.5">Phone Number</label>
+                    <select
+                      value={inboundNumberId}
+                      onChange={e => setInboundNumberId(e.target.value)}
+                      className="w-full bg-ink/80 border border-border text-cream px-3 py-2.5 rounded-lg text-sm focus:outline-none focus:border-violet appearance-none"
+                    >
+                      {phoneNumbers.map(n => (
+                        <option key={n.phone_number_id} value={n.phone_number_id}>{n.phone_number}</option>
+                      ))}
+                    </select>
+                    {selectedNumber && (
+                      <p className="text-xs text-subtle mt-1.5">
+                        Calls to <span className="text-cream font-mono">{selectedNumber.phone_number}</span> will be answered by this agent.
+                      </p>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Prompt preview */}
           <div>
             <button onClick={() => setPreview(p => !p)}
@@ -449,7 +518,10 @@ function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
 
           {/* Summary */}
           <div className="p-3 rounded-xl bg-lime/5 border border-lime/10 text-xs text-ghost">
-            This will create a new agent in your ElevenLabs account using the <span className="text-cream font-medium">{nodes.length} nodes</span> in this flow as its instructions.
+            Creates a new agent from <span className="text-cream font-medium">{nodes.length} nodes</span>
+            {enableInbound && selectedNumber && (
+              <span> and routes inbound calls on <span className="text-cream font-mono">{selectedNumber.phone_number}</span> to it</span>
+            )}.
           </div>
         </div>
 
@@ -466,7 +538,7 @@ function DeployModal({ nodes, edges, flowName, onClose, onDeployed }) {
 }
 
 // ── Success Banner ──────────────────────────────────────────
-function SuccessBanner({ agentName, onClose }) {
+function SuccessBanner({ agentName, inboundNumber, onClose }) {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex items-center gap-4 px-5 py-4 rounded-2xl bg-lime/10 border border-lime/30 shadow-2xl">
       <div className="w-8 h-8 rounded-xl bg-lime/20 flex items-center justify-center">
@@ -474,7 +546,10 @@ function SuccessBanner({ agentName, onClose }) {
       </div>
       <div>
         <p className="text-sm font-display font-semibold text-cream">Agent deployed!</p>
-        <p className="text-xs text-ghost mt-0.5">"{agentName}" is ready in Outbound Calls</p>
+        <p className="text-xs text-ghost mt-0.5">
+          "{agentName}" is ready in Outbound Calls
+          {inboundNumber && <span className="text-lime"> · answering inbound calls</span>}
+        </p>
       </div>
       <button onClick={onClose} className="text-subtle hover:text-ghost transition-colors ml-2"><X size={14} /></button>
     </div>
@@ -636,9 +711,9 @@ export default function FlowBuilder() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-ink">
-      <Sidebar />
-      <main className="flex-1 flex flex-col overflow-hidden">
+    <DashLayout>
+      <div className="flex flex-col" style={{minHeight: 'calc(100vh - 56px)'}}>
+      <div className="flex flex-1 flex-col overflow-hidden">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-3 border-b border-border bg-surface z-10 flex-shrink-0">
@@ -781,11 +856,11 @@ export default function FlowBuilder() {
         <DeployModal
           nodes={nodes} edges={edges} flowName={flowName}
           onClose={() => setShowDeploy(false)}
-          onDeployed={agent => { setDeployedAgent(agent); setShowDeploy(false) }}
+          onDeployed={(agent, inboundNumberId) => { setDeployedAgent({ ...agent, inboundNumberId }); setShowDeploy(false) }}
         />
       )}
       {deployedAgent && (
-        <SuccessBanner agentName={deployedAgent.name || flowName + ' Agent'} onClose={() => setDeployedAgent(null)} />
+        <SuccessBanner agentName={deployedAgent.name || flowName + ' Agent'} inboundNumber={deployedAgent.inboundNumberId} onClose={() => setDeployedAgent(null)} />
       )}
     </div>
   )
