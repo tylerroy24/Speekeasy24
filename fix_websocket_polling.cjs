@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState, useCallback } from 'react'
+const fs = require('fs')
+
+// ── 1. Replace useCallEvents.js with polling version ──────
+const newHook = `import { useEffect, useRef, useState, useCallback } from 'react'
 import { storage } from '../lib/storage'
 
 const POLL_INTERVAL = 5000 // 5 seconds
@@ -61,3 +64,44 @@ export function useCallEvents(onEvent) {
 
   return { connected }
 }
+`
+
+fs.writeFileSync('src/hooks/useCallEvents.js', newHook)
+console.log('✓ src/hooks/useCallEvents.js replaced with polling version')
+
+// ── 2. Remove WebSocket server from server.js ──────────────
+let server = fs.readFileSync('server.js', 'utf8')
+
+// Remove ws import
+server = server.replace("import { WebSocketServer } from 'ws'\n", '')
+
+// Remove WebSocket server block (from comment to end of wss.on block)
+server = server.replace(
+  /\/\/ ── WebSocket server with auth[^/]+wss\.on\('connection'[^}]+}\)[^\n]*\n/s,
+  '// WebSocket removed - using polling for Vercel compatibility\n'
+)
+
+// Remove upgrade handler
+server = server.replace(
+  /server\.on\('upgrade'[\s\S]+?wss\.handleUpgrade[\s\S]+?}\s*\)\s*}\s*\)/s,
+  ''
+)
+
+// Remove WebSocket close in graceful shutdown
+server = server.replace(
+  /\/\/ Close all WebSocket connections[\s\S]{0,200}wss\.clients[\s\S]{0,100}\n/s,
+  ''
+)
+
+fs.writeFileSync('server.js', server)
+console.log('✓ server.js WebSocket server removed')
+
+// ── 3. Verify ──────────────────────────────────────────────
+const updatedServer = fs.readFileSync('server.js', 'utf8')
+const updatedHook = fs.readFileSync('src/hooks/useCallEvents.js', 'utf8')
+
+console.log('\nVerify:')
+console.log('server.js has WebSocketServer:', updatedServer.includes('WebSocketServer'))
+console.log('server.js has wss:', updatedServer.includes('const wss'))
+console.log('useCallEvents uses polling:', updatedHook.includes('POLL_INTERVAL'))
+console.log('useCallEvents has no WebSocket:', !updatedHook.includes('new WebSocket'))
