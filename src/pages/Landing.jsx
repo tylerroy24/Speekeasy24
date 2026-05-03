@@ -4,7 +4,7 @@ import Nav from '../components/Nav'
 import { Waveform } from '../components/UI'
 import ChatBot from '../components/ChatBot'
 import { useSEO, schema } from '../hooks/useSEO'
-import { ChevronRight, Phone, Bot, BarChart3, Shield, Zap, Globe, Check, ArrowRight } from 'lucide-react'
+import { ChevronRight, Phone, PhoneIncoming, Bot, BarChart3, Shield, Zap, Globe, Check, ArrowRight } from 'lucide-react'
 
 const stats = [
   { value: '< 400ms', label: 'Avg response latency' },
@@ -20,9 +20,9 @@ const features = [
     desc: 'Launch thousands of personalized outbound calls simultaneously. Your AI agent handles objections, answers questions, and books meetings -- autonomously.',
   },
   {
-    icon: Bot,
-    title: 'Human-grade Voice AI',
-    desc: 'Studio-quality AI voices that sound indistinguishable from humans. Choose from 50+ voices or clone your own in minutes.',
+    icon: PhoneIncoming,
+    title: 'Inbound Call Handling',
+    desc: 'Never miss a call. Assign an AI agent to your phone number and it answers every inbound call instantly -- 24/7, no hold times, no missed leads.',
   },
   {
     icon: BarChart3,
@@ -35,9 +35,9 @@ const features = [
     desc: 'Write your agent\'s personality and goals in plain English. No scripts, no flowcharts. Just describe what you want and deploy.',
   },
   {
-    icon: Globe,
-    title: 'Global Telephony',
-    desc: 'Call anywhere in the world. Local numbers in 50+ countries. Automatic timezone detection and local caller ID.',
+    icon: Bot,
+    title: 'Human-grade Voice AI',
+    desc: 'Studio-quality AI voices that sound indistinguishable from humans. Choose from 50+ voices or clone your own in minutes.',
   },
   {
     icon: Shield,
