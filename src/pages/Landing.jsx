@@ -88,7 +88,7 @@ export default function Landing() {
           </h1>
 
           <p className="animate-on-load delay-200 text-base md:text-xl text-ghost max-w-2xl mx-auto mb-8 leading-relaxed px-2">
-            Deploy human-sounding voice agents in minutes. Speekeasy automates your outbound calls, schedules follow-ups, and qualifies leads around the clock -- so your team spends less time dialing and more time closing.
+            Deploy human-sounding voice agents in minutes. Speekeasy automates your outbound calls, answers inbound calls 24/7, schedules follow-ups, and qualifies leads around the clock -- so your team spends less time dialing and more time closing.
           </p>
 
           <div className="animate-on-load delay-300 flex flex-col sm:flex-row gap-4 justify-center items-center">
