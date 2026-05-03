@@ -74,10 +74,10 @@ export default function Nav() {
             <>
               <Link to="/login" className="text-sm text-ghost hover:text-cream transition-colors">Sign in</Link>
               <Link
-                to="/register"
+                to="/contact"
                 className="flex items-center gap-1.5 bg-lime text-ink text-sm font-display font-semibold px-4 py-2 rounded-lg hover:bg-lime-dim transition-colors lime-glow"
               >
-                Start free <ChevronRight size={14} />
+                Book a demo <ChevronRight size={14} />
               </Link>
             </>
           )}
@@ -105,7 +105,7 @@ export default function Nav() {
             ) : (
               <>
                 <Link to="/login" className="flex-1 text-center border border-border text-sm text-ghost px-4 py-2 rounded-lg">Sign in</Link>
-                <Link to="/register" className="flex-1 text-center bg-lime text-ink text-sm font-semibold px-4 py-2 rounded-lg">Start free</Link>
+                <Link to="/contact" className="flex-1 text-center bg-lime text-ink text-sm font-semibold px-4 py-2 rounded-lg">Book a demo</Link>
               </>
             )}
           </div>
