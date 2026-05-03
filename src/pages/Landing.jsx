@@ -53,35 +53,6 @@ const useCases = [
   { label: 'Customer Surveys', desc: 'Collect feedback from every customer automatically.' },
   { label: 'Event Invitations', desc: 'Personal invites that feel like they are from a human.' },
 ]
-const plans = [
-  {
-    name: 'Starter',
-    price: '$49',
-    per: '/month',
-    desc: 'For solo operators getting started with AI calling.',
-    features: ['200 minutes/month', '2 AI agents', '50+ AI voices', 'Call transcripts', 'Email support'],
-    cta: 'Start free trial',
-    highlighted: false,
-  },
-  {
-    name: 'Growth',
-    price: '$199',
-    per: '/month',
-    desc: 'For teams scaling their outbound operations.',
-    features: ['1,000 minutes/month', '10 AI agents', 'Voice cloning', 'Analytics dashboard', 'Webhook integrations', 'Priority support'],
-    cta: 'Get started',
-    highlighted: true,
-  },
-  {
-    name: 'Enterprise',
-    price: 'Custom',
-    per: '',
-    desc: 'For organizations that need unlimited scale.',
-    features: ['Unlimited minutes', 'Unlimited agents', 'Custom LLM prompts', 'Dedicated infra', 'SLA guarantee', 'White-glove onboarding'],
-    cta: 'Contact sales',
-    highlighted: false,
-  },
-]
 
 export default function Landing() {
   const heroRef = useRef(null)
@@ -94,7 +65,6 @@ export default function Landing() {
         schema.softwareApp(),
         schema.faqPage([
           { q: 'What is Speekeasy?', a: 'Speekeasy is an AI-powered voice agent platform that lets businesses create and deploy AI phone agents for inbound and outbound calls. It automates lead qualification, appointment reminders, sales outreach, and more.' },
-          { q: 'How much does Speekeasy cost?', a: 'Speekeasy offers a Starter plan at $49/month (200 minutes), a Growth plan at $199/month (1,000 minutes), and custom Enterprise pricing for unlimited usage.' },
           { q: 'Can I make outbound calls with AI?', a: 'Yes. Speekeasy supports fully automated outbound calling using AI voice agents. You can call individual numbers or upload a CSV list for bulk campaigns.' },
           { q: 'Does Speekeasy support inbound calls?', a: 'Yes. You can assign an AI agent to your phone number so it automatically answers all incoming calls 24/7.' },
           { q: 'How do I get started?', a: 'Sign up for free, connect your account, create an AI agent in plain English, and make your first call within 10 minutes.' },
@@ -123,10 +93,10 @@ export default function Landing() {
 
           <div className="animate-on-load delay-300 flex flex-col sm:flex-row gap-4 justify-center items-center">
             <Link
-              to="/register"
+              to="/contact"
               className="group flex items-center gap-2 bg-lime text-ink font-display font-bold text-base px-8 py-4 rounded-xl hover:bg-lime-dim transition-all lime-glow"
             >
-              Start for free
+              Book a demo
               <ChevronRight size={16} className="group-hover:translate-x-0.5 transition-transform" />
             </Link>
             <a
@@ -286,58 +256,6 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Pricing */}
-      <section id="pricing" className="py-24 px-6 bg-surface/30">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-16">
-            <p className="text-xs font-mono text-lime uppercase tracking-widest mb-3">Pricing</p>
-            <h2 className="font-display font-bold text-4xl md:text-5xl text-cream">Simple, usage-based pricing</h2>
-            <p className="text-ghost mt-4">Start free. Scale as you grow. No contracts.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {plans.map(({ name, price, per, desc, features: planFeatures, cta, highlighted }) => (
-              <div
-                key={name}
-                className={`rounded-2xl p-6 border transition-all ${
-                  highlighted
-                    ? 'bg-lime/5 border-lime/30 shadow-[0_0_60px_rgba(200,245,58,0.08)]'
-                    : 'glass-card'
-                }`}
-              >
-                {highlighted && (
-                  <div className="inline-flex items-center gap-1.5 bg-lime text-ink text-xs font-mono font-bold px-3 py-1 rounded-full mb-4">
-                    ⚡ Most Popular
-                  </div>
-                )}
-                <p className="font-mono text-xs text-ghost uppercase tracking-widest mb-1">{name}</p>
-                <div className="flex items-baseline gap-1 mb-2">
-                  <span className="font-display font-extrabold text-4xl text-cream">{price}</span>
-                  {per && <span className="text-ghost text-sm">{per}</span>}
-                </div>
-                <p className="text-sm text-ghost mb-6">{desc}</p>
-                <ul className="space-y-2.5 mb-6">
-                  {planFeatures.map(f => (
-                    <li key={f} className="flex items-center gap-2.5 text-sm text-ghost">
-                      <Check size={13} className="text-lime flex-shrink-0" />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  to="/register"
-                  className={`block text-center text-sm font-display font-semibold py-3 rounded-xl transition-all ${
-                    highlighted
-                      ? 'bg-lime text-ink hover:bg-lime-dim lime-glow'
-                      : 'border border-border text-ghost hover:border-lime/30 hover:text-cream'
-                  }`}
-                >
-                  {cta}
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* CTA */}
       <section className="py-24 px-6">
@@ -347,10 +265,10 @@ export default function Landing() {
           </h2>
           <p className="text-ghost text-lg mb-10">Join hundreds of teams automating their outbound calls with Speekeasy.</p>
           <Link
-            to="/register"
+            to="/contact"
             className="inline-flex items-center gap-2 bg-lime text-ink font-display font-bold text-lg px-10 py-5 rounded-xl hover:bg-lime-dim transition-all lime-glow"
           >
-            Start for free -- no card required
+            Book a demo
             <ChevronRight size={18} />
           </Link>
         </div>
