@@ -47,7 +47,7 @@ export default function Nav() {
             <>
               <a href="#features" className="text-sm text-ghost hover:text-cream transition-colors hover-underline">Features</a>
               <a href="#how-it-works" className="text-sm text-ghost hover:text-cream transition-colors hover-underline">How it works</a>
-              <a href="#pricing" className="text-sm text-ghost hover:text-cream transition-colors hover-underline">Pricing</a>
+              <Link to="/contact" className="text-sm text-ghost hover:text-cream transition-colors hover-underline">Contact</Link>
             </>
           )}
         </div>
@@ -96,7 +96,7 @@ export default function Nav() {
             <>
               <a href="#features" onClick={() => setMobileOpen(false)} className="text-sm text-ghost">Features</a>
               <a href="#how-it-works" onClick={() => setMobileOpen(false)} className="text-sm text-ghost">How it works</a>
-              <a href="#pricing" onClick={() => setMobileOpen(false)} className="text-sm text-ghost">Pricing</a>
+              <Link to="/contact" onClick={() => setMobileOpen(false)} className="text-sm text-ghost">Contact</Link>
             </>
           )}
           <div className="flex gap-3 pt-2 border-t border-border">
