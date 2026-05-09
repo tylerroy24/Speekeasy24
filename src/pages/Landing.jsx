@@ -110,7 +110,7 @@ export default function Landing() {
             <span className="text-xs font-mono text-lime">AI calling — live in 10 minutes</span>
           </div>
 
-          <h1 className="animate-on-load delay-100 font-display font-extrabold text-3xl md:text-5xl leading-[1.05] tracking-tight mb-6">
+          <h1 className="animate-on-load delay-100 font-display font-extrabold text-2xl sm:text-3xl md:text-5xl leading-[1.1] tracking-tight mb-5">
             <span className="text-lime lime-text-glow">Every call answered.</span>
             <br />
             <span className="text-cream">Every lead qualified.</span>
@@ -287,7 +287,7 @@ export default function Landing() {
           <div className="text-center mb-16">
             <p className="text-xs font-mono text-lime uppercase tracking-widest mb-3">Platform</p>
             <h2 className="font-display font-bold text-2xl sm:text-3xl md:text-5xl text-cream mb-4">One platform. Every call covered.</h2>
-            <p className="text-ghost text-lg max-w-2xl mx-auto">From the first inbound ring to the final outbound follow-up — Speekeasy handles the calls so your team handles the relationships.</p>
+            <p className="text-ghost text-sm sm:text-base md:text-lg max-w-2xl mx-auto">From the first inbound ring to the final outbound follow-up — Speekeasy handles the calls so your team handles the relationships.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {features.map(({ icon: Icon, title, desc }, i) => (
@@ -314,7 +314,7 @@ export default function Landing() {
             <h2 className="font-display font-bold text-2xl sm:text-3xl md:text-5xl text-cream mb-4">Live in under 10 minutes</h2>
             <p className="text-ghost text-lg max-w-xl mx-auto">Describe what you need. Pick a voice. Go live. That's it.</p>
           </div>
-          <div className="grid md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-8">
             {[
               {
                 num: '01',
@@ -398,7 +398,7 @@ export default function Landing() {
           <h2 className="font-display font-extrabold text-3xl sm:text-4xl md:text-5xl text-cream mb-6 leading-tight">
             Stop missing calls.<br />Start closing deals.
           </h2>
-          <p className="text-ghost text-lg mb-10 max-w-xl mx-auto">Book a 20-minute demo and we'll show you how to deploy your first AI agent — inbound or outbound — live on the call.</p>
+          <p className="text-ghost text-sm sm:text-base md:text-lg mb-8 max-w-xl mx-auto px-4">Book a 20-minute demo and we'll show you how to deploy your first AI agent — inbound or outbound — live on the call.</p>
           <Link
             to="/contact"
             className="inline-flex items-center gap-2 bg-lime text-ink font-display font-bold text-lg px-10 py-5 rounded-xl hover:bg-lime-dim transition-all lime-glow"

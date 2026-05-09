@@ -197,6 +197,31 @@ async function requireAuth(req, res, next) {
 // Upgrade handler -- verify Supabase JWT before accepting WS
 
 
+// ── In-memory event queue (for polling-based live monitor) ─────
+// Stores recent call events so the frontend can poll /api/events
+const eventQueue = []
+const MAX_EVENTS = 100
+
+function broadcast(type, data) {
+  eventQueue.unshift({ type, data, ts: Date.now() })
+  if (eventQueue.length > MAX_EVENTS) eventQueue.pop()
+}
+
+// Polling endpoint for Live Monitor
+app.get('/api/events', (_req, res) => {
+  const since = parseInt(_req.query.since || '0')
+  const events = since ? eventQueue.filter(e => e.ts > since) : eventQueue.slice(0, 20)
+  res.json({ events, serverTime: Date.now() })
+})
+
+// ── CRM webhooks store ─────────────────────────────────────────
+const crmWebhooks = new Map()
+
+app.get('/api/crm/webhooks', requireAuth, (req, res) => {
+  const userId = req.user?.id || 'dev'
+  res.json({ webhooks: crmWebhooks.get(userId) || [] })
+})
+
 app.post('/api/crm/webhooks', requireAuth, (req, res) => {
   const userId = req.user?.id || 'dev'
   const { name, url, events, headers: customHeaders } = req.body
@@ -303,6 +328,35 @@ app.delete('/api/el/agents/:id', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Register agent ownership for a user
+app.post('/api/el/agents/:id/register', requireAuth, async (req, res) => {
+  const userId = req.user?.id || 'dev'
+  const { name } = req.body
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    await supabase.from('user_agents').upsert({
+      user_id: userId, agent_id: req.params.id, agent_name: name || req.params.id
+    }, { onConflict: 'user_id,agent_id' })
+    res.json({ ok: true })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
+// Get only this user's agents
+app.get('/api/el/agents/mine', requireAuth, async (req, res) => {
+  const userId = req.user?.id || 'dev'
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    const { data } = await supabase.from('user_agents').select('agent_id').eq('user_id', userId)
+    const agentIds = new Set((data || []).map(r => r.agent_id))
+    const { ok, status, data: elData } = await elFetch('/convai/agents?page_size=100')
+    if (!ok) return res.status(status).json({ error: 'ElevenLabs error' })
+    const agents = (elData.agents || []).filter(a => agentIds.has(a.agent_id))
+    res.json({ agents })
+  } catch (e) { res.status(500).json({ error: e.message }) }
+})
+
 // Get voices
 app.get('/api/el/voices', async (_req, res) => {
   const { ok, status, data } = await elFetch('/voices')
@@ -354,44 +408,58 @@ app.get('/api/el/conversations', async (req, res) => {
   res.json(data)
 })
 
-// Get analytics
-app.get('/api/analytics', async (req, res) => {
+// Get analytics — filtered to the authenticated user's calls via Supabase
+app.get('/api/analytics', requireAuth, async (req, res) => {
   const days = Math.min(365, Math.max(1, parseInt(req.query.days || '7')))
-  const { ok, status, data } = await elFetch('/convai/conversations?page_size=100')
-  if (!ok) return res.status(status).json({ error: data.error || 'Failed to get analytics' })
+  const userId = req.user?.id || 'dev'
 
-  const conversations = data.conversations || []
-  const cutoff = Date.now() - days * 24 * 60 * 60 * 1000
-  const recent = conversations.filter(c => new Date(c.start_time_unix_secs * 1000).getTime() > cutoff)
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
+    const cutoff = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString()
 
-  const sentiments = { positive: 0, neutral: 0, negative: 0, unknown: 0 }
-  const dailyCounts = {}
-  for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
-    dailyCounts[d] = 0
+    const { data: calls, error } = await supabase
+      .from('calls')
+      .select('*')
+      .eq('user_id', userId)
+      .gte('timestamp', cutoff)
+      .order('timestamp', { ascending: false })
+
+    if (error) throw new Error(error.message)
+
+    const recent = calls || []
+    const sentiments = { positive: 0, neutral: 0, negative: 0, unknown: 0 }
+    const dailyCounts = {}
+    for (let i = days - 1; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000).toISOString().slice(0, 10)
+      dailyCounts[d] = 0
+    }
+
+    recent.forEach(call => {
+      const sentiment = call.metadata?.sentiment?.toLowerCase() || 'unknown'
+      if (sentiments[sentiment] !== undefined) sentiments[sentiment]++
+      else sentiments.unknown++
+      const day = new Date(call.timestamp).toISOString().slice(0, 10)
+      if (dailyCounts[day] !== undefined) dailyCounts[day]++
+    })
+
+    const completed = recent.filter(c => c.status === 'completed').length
+    res.json({
+      summary: {
+        total: recent.length,
+        completed,
+        successRate: recent.length > 0 ? Math.round((completed / recent.length) * 100) : 0,
+        avgDuration: recent.length > 0
+          ? Math.round(recent.reduce((a, c) => a + (c.duration || 0), 0) / recent.length)
+          : 0,
+      },
+      sentiments,
+      dailyCounts,
+    })
+  } catch (e) {
+    log('Analytics error: ' + e.message)
+    res.status(500).json({ error: 'Failed to get analytics' })
   }
-
-  recent.forEach(conv => {
-    const sentiment = conv.analysis?.user_sentiment?.toLowerCase() || 'unknown'
-    if (sentiments[sentiment] !== undefined) sentiments[sentiment]++
-    else sentiments.unknown++
-    const day = new Date(conv.start_time_unix_secs * 1000).toISOString().slice(0, 10)
-    if (dailyCounts[day] !== undefined) dailyCounts[day]++
-  })
-
-  const completed = recent.filter(c => c.status === 'done').length
-  res.json({
-    summary: {
-      total: recent.length,
-      completed,
-      successRate: recent.length > 0 ? Math.round((completed / recent.length) * 100) : 0,
-      avgDuration: recent.length > 0
-        ? Math.round(recent.reduce((a, c) => a + (c.metadata?.call_duration_secs || 0), 0) / recent.length)
-        : 0,
-    },
-    sentiments,
-    dailyCounts,
-  })
 })
 
 // Live call transfer

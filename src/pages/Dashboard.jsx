@@ -4,6 +4,7 @@ import { Button, Card, Badge, Waveform, Spinner } from '../components/UI'
 import { useElevenLabs } from '../lib/elevenlabs'
 import { storage } from '../lib/storage'
 import { useCallEvents } from '../hooks/useCallEvents'
+import { useCalls } from '../hooks/useCalls'
 import {
   Phone, PhoneCall, PhoneIncoming, PhoneOff, CheckCircle,
   Clock, Activity, Bot, Zap, TrendingUp, X, ArrowUpRight,
@@ -279,7 +280,7 @@ export default function Dashboard() {
 
   const [agents, setAgents] = useState([])
   const [phoneNumbers, setPhoneNumbers] = useState([])
-  const [calls, setCalls] = useState(storage.getCalls())
+  const { calls, refresh: refreshCalls, addCall, updateCall } = useCalls()
   const [loading, setLoading] = useState(false)
   const [calling, setCalling] = useState(false)
   const [wsConnected, setWsConnected] = useState(false)
@@ -295,19 +296,18 @@ export default function Dashboard() {
   useEffect(() => {
     if (hasKey) load()
 
-    const interval = setInterval(() => {
-      // Auto-expire calls stuck in calling/initiated for more than 10 minutes
-      const calls = storage.getCalls()
+    const interval = setInterval(async () => {
+      const currentCalls = await Promise.resolve(storage.getCalls())
       const now = Date.now()
       let changed = false
-      calls.forEach(c => {
+      for (const c of currentCalls) {
         if ((c.status === 'calling' || c.status === 'initiated') &&
             now - new Date(c.timestamp).getTime() > 10 * 60 * 1000) {
-          storage.updateCall(c.id, { status: 'completed' })
+          await Promise.resolve(storage.updateCall(c.id, { status: 'completed' }))
           changed = true
         }
-      })
-      setCalls(storage.getCalls())
+      }
+      if (changed) refreshCalls()
     }, 5000)
 
     return () => clearInterval(interval)
@@ -328,15 +328,14 @@ export default function Dashboard() {
 
   const handleWsEvent = useCallback((event, data) => {
     if (event === 'call.completed') {
-      storage.addCall({
+      addCall({
         to: data.to, from: data.from, agentId: data.agentId,
         agentName: data.agentName || 'Agent', status: 'completed',
         direction: data.direction || 'outbound', duration: data.duration,
         conversationId: data.conversationId,
       })
-      setCalls(storage.getCalls())
     }
-  }, [])
+  }, [addCall])
 
   const { connected } = useCallEvents(handleWsEvent)
   useEffect(() => setWsConnected(connected), [connected])
@@ -346,22 +345,18 @@ export default function Dashboard() {
     const digits = toNumber.replace(/\D/g, '')
     const e164 = digits.startsWith('1') ? `+${digits}` : `+1${digits}`
 
-    // Debug -- visible in browser console (Cmd+Option+J)
     console.log('[Speekeasy] Initiating call:', { agentId, toNumber: e164, fromNumberId: fromId })
     console.log('[Speekeasy] Available phone numbers:', phoneNumbers)
 
     const agentName = agents.find(a => a.agent_id === agentId)?.name || 'Agent'
-    const call = storage.addCall({ to: toNumber, agentId, agentName, fromId, status: 'initiated', direction: 'outbound' })
-    setCalls(storage.getCalls())
+    const call = await addCall({ to: toNumber, agentId, agentName, fromId, status: 'initiated', direction: 'outbound' })
     try {
       await el.initiateOutboundCall({ agentId, toNumber: e164, fromNumberId: fromId })
-      storage.updateCall(call.id, { status: 'calling' })
-      setCalls(storage.getCalls())
+      await updateCall(call?.id, { status: 'calling' })
       return { ok: true }
     } catch (e) {
       console.error('[Speekeasy] Call failed:', e.message)
-      storage.updateCall(call.id, { status: 'failed', error: e.message })
-      setCalls(storage.getCalls())
+      await updateCall(call?.id, { status: 'failed', error: e.message })
       return { ok: false, error: e.message }
     } finally {
       setCalling(false)
@@ -455,14 +450,13 @@ export default function Dashboard() {
                   </h2>
                 </div>
                 <button
-                  onClick={() => {
-                    const calls = storage.getCalls()
-                    calls.forEach(c => {
+                  onClick={async () => {
+                    const currentCalls = await Promise.resolve(storage.getCalls())
+                    for (const c of currentCalls) {
                       if (c.status === 'calling' || c.status === 'initiated') {
-                        storage.updateCall(c.id, { status: 'completed' })
+                        await updateCall(c.id, { status: 'completed' })
                       }
-                    })
-                    setCalls(storage.getCalls())
+                    }
                   }}
                   className="text-xs font-mono text-subtle hover:text-coral transition-colors border border-border px-3 py-1.5 rounded-lg hover:border-coral/30 hover:bg-coral/5"
                 >
@@ -484,10 +478,7 @@ export default function Dashboard() {
                         {call.direction === 'inbound' ? 'Inbound' : 'Outbound'}
                       </span>
                       <button
-                        onClick={() => {
-                          storage.updateCall(call.id, { status: 'completed' })
-                          setCalls(storage.getCalls())
-                        }}
+                        onClick={() => updateCall(call.id, { status: 'completed' })}
                         className="text-subtle hover:text-coral transition-colors ml-1"
                         title="Mark as ended"
                       >

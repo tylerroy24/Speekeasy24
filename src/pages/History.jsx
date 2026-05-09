@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState } from 'react'
 import DashLayout from '../components/DashLayout'
 import { Card, Badge, Button } from '../components/UI'
-import { storage } from '../lib/storage'
+import { useCalls } from '../hooks/useCalls'
 import { useSEO } from '../hooks/useSEO'
 import { Phone, PhoneCall, PhoneIncoming, PhoneOff, Clock, CheckCircle, Search, Trash2, Download } from 'lucide-react'
 import { clsx } from 'clsx'
@@ -22,24 +22,13 @@ function formatDate(iso) {
 export default function History() {
   useSEO({ title: "Call History", description: "Review your complete call history, transcripts, and outcomes.", noIndex: true })
 
-  const [calls, setCalls] = useState([])
+  const { calls, clearCalls } = useCalls()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
 
-  useEffect(() => {
-    setCalls(storage.getCalls())
-  }, [])
-
-  const filtered = calls.filter(c => {
-    const matchSearch = c.to?.includes(search) || c.agentName?.toLowerCase().includes(search.toLowerCase())
-    const matchStatus = filterStatus === 'all' || c.status === filterStatus
-    return matchSearch && matchStatus
-  })
-
-  const clearHistory = () => {
+  const handleClear = async () => {
     if (!window.confirm('Clear all call history? This cannot be undone.')) return
-    storage.saveCalls([])
-    setCalls([])
+    await clearCalls()
   }
 
   const exportCSV = () => {
@@ -54,6 +43,12 @@ export default function History() {
     a.href = url; a.download = 'speekeasy-calls.csv'; a.click()
     URL.revokeObjectURL(url)
   }
+
+  const filtered = calls.filter(c => {
+    const matchSearch = c.to?.includes(search) || c.agentName?.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || c.status === filterStatus
+    return matchSearch && matchStatus
+  })
 
   const stats = {
     total: calls.length,
@@ -76,7 +71,7 @@ export default function History() {
               <Button variant="secondary" size="sm" onClick={exportCSV}>
                 <Download size={13} /> Export CSV
               </Button>
-              <Button variant="danger" size="sm" onClick={clearHistory}>
+              <Button variant="danger" size="sm" onClick={handleClear}>
                 <Trash2 size={13} /> Clear
               </Button>
             </div>

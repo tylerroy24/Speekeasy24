@@ -1,62 +1,38 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { storage } from '../lib/storage'
 
-const POLL_INTERVAL = 5000 // 5 seconds
+const POLL_INTERVAL = 4000 // 4 seconds
 
 export function useCallEvents(onEvent) {
   const [connected, setConnected] = useState(false)
   const onEventRef = useRef(onEvent)
-  const lastCountRef = useRef(null)
+  const lastTsRef = useRef(Date.now())
   const timerRef = useRef(null)
 
   useEffect(() => { onEventRef.current = onEvent }, [onEvent])
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch('/api/el/conversations', {
-        headers: { 'Content-Type': 'application/json' }
-      })
+      const res = await fetch('/api/events?since=' + lastTsRef.current)
       if (!res.ok) throw new Error('poll failed')
-      const data = await res.json()
+      const { events, serverTime } = await res.json()
       setConnected(true)
+      lastTsRef.current = serverTime || Date.now()
 
-      const conversations = data.conversations || []
-
-      // On first poll just set baseline, don't fire events
-      if (lastCountRef.current === null) {
-        lastCountRef.current = conversations.length
-        return
-      }
-
-      // Fire call.completed for any new conversations since last poll
-      if (conversations.length > lastCountRef.current) {
-        const newOnes = conversations.slice(0, conversations.length - lastCountRef.current)
-        newOnes.forEach(conv => {
-          onEventRef.current && onEventRef.current('call.completed', {
-            conversationId: conv.conversation_id,
-            agentId: conv.agent_id,
-            agentName: conv.metadata?.agent_name || 'Agent',
-            duration: conv.metadata?.call_duration_secs,
-            status: conv.status,
-            direction: 'outbound',
-          })
+      if (events && events.length > 0) {
+        events.forEach(({ type, data }) => {
+          onEventRef.current && onEventRef.current(type, data)
         })
       }
-
-      lastCountRef.current = conversations.length
     } catch (e) {
+      if (import.meta.env.DEV) console.warn('[useCallEvents] poll error:', e)
       setConnected(false)
     }
   }, [])
 
   useEffect(() => {
-    // Initial poll
     poll()
-    // Start polling interval
     timerRef.current = setInterval(poll, POLL_INTERVAL)
-    return () => {
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [poll])
 
   return { connected }

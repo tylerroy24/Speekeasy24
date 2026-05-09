@@ -31,8 +31,14 @@ export function useElevenLabs(token) {
   const getVoices = () => call('/voices')
 
   const getAgents = async () => {
-    const data = await call('/agents')
-    return data.agents || []
+    try {
+      const data = await call('/agents/mine')
+      return data.agents || []
+    } catch {
+      // fallback to all agents in dev
+      const data = await call('/agents')
+      return data.agents || []
+    }
   }
 
   const getPhoneNumbers = async () => {
@@ -40,8 +46,8 @@ export function useElevenLabs(token) {
     return Array.isArray(data) ? data : data.phone_numbers || []
   }
 
-  const createAgent = ({ name, prompt, voiceId, firstMessage }) =>
-    call('/agents', {
+  const createAgent = async ({ name, prompt, voiceId, firstMessage }) => {
+    const agent = await call('/agents', {
       method: 'POST',
       body: JSON.stringify({
         name,
@@ -55,6 +61,15 @@ export function useElevenLabs(token) {
         },
       }),
     })
+    // Register ownership so this user sees their agent
+    if (agent?.agent_id) {
+      await call('/agents/' + agent.agent_id + '/register', {
+        method: 'POST',
+        body: JSON.stringify({ name }),
+      }).catch(() => {})
+    }
+    return agent
+  }
 
   const deleteAgent = (agentId) =>
     call('/agents/' + agentId, { method: 'DELETE' })
