@@ -268,6 +268,40 @@ async function userOwnsCallSid(userId, callSid) {
   }
 }
 
+async function resolveUserIdForAgent(agentId) {
+  if (!agentId) return null
+  try {
+    const supabase = await getSupabaseAdmin()
+    if (!supabase) return null
+    const { data } = await supabase
+      .from('user_agents')
+      .select('user_id')
+      .eq('agent_id', agentId)
+      .maybeSingle()
+    return data?.user_id || null
+  } catch (e) {
+    log('resolveUserIdForAgent error: ' + e.message)
+    return null
+  }
+}
+
+async function resolveUserIdForCallSid(callSid) {
+  if (!callSid) return null
+  try {
+    const supabase = await getSupabaseAdmin()
+    if (!supabase) return null
+    const { data } = await supabase
+      .from('calls')
+      .select('user_id')
+      .or('call_id.eq.' + callSid + ',metadata->>call_sid.eq.' + callSid)
+      .maybeSingle()
+    return data?.user_id || null
+  } catch (e) {
+    log('resolveUserIdForCallSid error: ' + e.message)
+    return null
+  }
+}
+
 async function persistOutboundCall(userId, { agentId, toNumber, agentName, elResponse }) {
   if (isDevAuthBypass()) return
   if (!userId) return
@@ -309,9 +343,15 @@ function broadcast(type, data) {
 }
 
 // Polling endpoint for Live Monitor
-app.get('/api/events', (_req, res) => {
-  const since = parseInt(_req.query.since || '0')
-  const events = since ? eventQueue.filter(e => e.ts > since) : eventQueue.slice(0, 20)
+// SEC-006: requireAuth + per-user filter so one tenants events do not
+// leak to another. Webhook handlers tag every broadcast with the resolved
+// user_id; events with no resolvable owner are dropped (rather than shown
+// to everyone).
+app.get('/api/events', requireAuth, (req, res) => {
+  const userId = req.user.id
+  const since = parseInt(req.query.since || '0')
+  const window = since ? eventQueue.filter(e => e.ts > since) : eventQueue.slice(0, 50)
+  const events = window.filter(e => e.data?.userId === userId)
   res.json({ events, serverTime: Date.now() })
 })
 
@@ -909,8 +949,7 @@ function verifyTwilioSignature(req) {
 // ── Webhooks ───────────────────────────────────────────────────
 // SEC-001: Signature verification on both webhooks.
 
-app.post('/webhooks/elevenlabs', (req, res) => {
-  // FIX: Verify ElevenLabs signature
+app.post('/webhooks/elevenlabs', async (req, res) => {
   if (!verifyElevenLabsSignature(req)) {
     log('ElevenLabs webhook: invalid signature')
     return res.status(401).json({ error: 'Invalid signature' })
@@ -919,7 +958,12 @@ app.post('/webhooks/elevenlabs', (req, res) => {
   try {
     const p = req.body
     log('ElevenLabs webhook: conversation=' + p.conversation_id)
+    // SEC-006: resolve userId so /api/events can filter per tenant.
+    const ownerId = isDevAuthBypass()
+      ? 'dev-bypass'
+      : await resolveUserIdForAgent(p.agent_id)
     broadcast('call.completed', {
+      userId: ownerId,
       conversationId: p.conversation_id,
       agentId: p.agent_id,
       status: p.status || 'completed',
@@ -953,8 +997,7 @@ app.post('/webhooks/elevenlabs', (req, res) => {
   }
 })
 
-app.post('/webhooks/twilio/status', (req, res) => {
-  // FIX: Verify Twilio signature
+app.post('/webhooks/twilio/status', async (req, res) => {
   if (!verifyTwilioSignature(req)) {
     log('Twilio webhook: invalid signature')
     return res.status(401).json({ error: 'Invalid signature' })
@@ -969,7 +1012,13 @@ app.post('/webhooks/twilio/status', (req, res) => {
     'failed': 'failed', 'canceled': 'failed',
   }
 
+  // SEC-006: resolve userId so /api/events can filter per tenant.
+  const ownerId = isDevAuthBypass()
+    ? 'dev-bypass'
+    : await resolveUserIdForCallSid(CallSid)
+
   broadcast('twilio.status', {
+    userId: ownerId,
     callSid: CallSid,
     status: statusMap[CallStatus] || CallStatus,
     to: To,

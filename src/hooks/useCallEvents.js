@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { supabase } from '../lib/supabase'
 
 const POLL_INTERVAL = 4000 // 4 seconds
 
@@ -12,7 +13,14 @@ export function useCallEvents(onEvent) {
 
   const poll = useCallback(async () => {
     try {
-      const res = await fetch('/api/events?since=' + lastTsRef.current)
+      // SEC-006: /api/events is now per-user; pass the live Supabase
+      // session token so the server can filter to this tenants events.
+      const { data: { session } = { session: null } } =
+        await supabase.auth.getSession().catch(() => ({ data: { session: null } }))
+      const headers = session?.access_token
+        ? { Authorization: 'Bearer ' + session.access_token }
+        : {}
+      const res = await fetch('/api/events?since=' + lastTsRef.current, { headers })
       if (!res.ok) throw new Error('poll failed')
       const { events, serverTime } = await res.json()
       setConnected(true)
