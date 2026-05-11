@@ -14,10 +14,24 @@ const app = express()
 const server = createServer(app)
 const PORT = process.env.PORT || 3001
 const IS_PROD = process.env.NODE_ENV === 'production'
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || (IS_PROD ? null : 'http://localhost:5173')
-const ALLOWED_ORIGINS = ALLOWED_ORIGIN
-  ? [ALLOWED_ORIGIN, ALLOWED_ORIGIN.replace('app.', ''), ALLOWED_ORIGIN.replace('://', '://app.')]
-  : []
+// Origins allowed by CORS. ALLOWED_ORIGIN supports a comma-separated list
+// so multiple custom domains can be added without code changes. The known
+// production Vercel host is hard-coded so a missing env var does not lock
+// the deployed app out of its own backend. Preview deploys on *.vercel.app
+// are matched dynamically below.
+const DEFAULT_PROD_ORIGINS = [
+  'https://speekeasy24.vercel.app',
+]
+const ENV_ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || '')
+  .split(',')
+  .map(s => s.trim())
+  .filter(Boolean)
+const DEV_ALLOWED_ORIGINS = IS_PROD ? [] : ['http://localhost:5173']
+const ALLOWED_ORIGINS = new Set([
+  ...DEFAULT_PROD_ORIGINS,
+  ...ENV_ALLOWED_ORIGINS,
+  ...DEV_ALLOWED_ORIGINS,
+])
 const WORKER_ID = process.env.WORKER_ID || process.pid
 
 // ── Trust proxy (required for load balancers) ──────────────────
@@ -48,13 +62,20 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }))
 
-// CORS -- locked to your domain in production
+// CORS -- locked to known origins in production. Requests with no Origin
+// header (curl, server-to-server, Twilio/ElevenLabs webhooks) pass through
+// so the auth gate (not CORS) decides whether to reject them.
 app.use(cors({
   origin: (origin, callback) => {
-    // Allow requests with no origin (server-to-server, curl)
     if (!origin) return callback(null, true)
-    if (!IS_PROD) return callback(null, true) // Open in dev
-    if (ALLOWED_ORIGINS.length && (ALLOWED_ORIGINS.includes(origin) || !ALLOWED_ORIGIN)) return callback(null, true)
+    if (!IS_PROD) return callback(null, true)
+    if (ALLOWED_ORIGINS.has(origin)) return callback(null, true)
+    // Allow any *.vercel.app preview deployment so PR previews can hit
+    // the same backend without per-PR env-var changes.
+    try {
+      const host = new URL(origin).hostname
+      if (host.endsWith('.vercel.app')) return callback(null, true)
+    } catch {}
     log('CORS blocked: ' + origin)
     callback(new Error('Not allowed by CORS'))
   },
