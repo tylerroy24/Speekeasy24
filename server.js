@@ -148,7 +148,15 @@ const callLimiter = rateLimit({
   max: 20,
   store: rateLimitStore,
   message: { error: 'Call rate limit exceeded.' },
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => req.user?.id || req.ip,
+})
+
+const smsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  store: rateLimitStore,
+  message: { error: 'SMS rate limit exceeded.' },
+  keyGenerator: (req) => req.user?.id || req.ip,
 })
 
 app.use(standardLimiter)
@@ -207,6 +215,85 @@ async function requireAuth(req, res, next) {
     return res.status(401).json({ error: 'Auth error' })
   }
 }
+
+// ── Ownership helpers ──────────────────────────────────────────
+// SEC-002/003/005: Verify a request's user actually owns the agent or call
+// it is acting on. Prefers a service role key when available so RLS does
+// not block server-side reads; falls back to the anon key.
+async function getSupabaseAdmin() {
+  if (!process.env.SUPABASE_URL) return null
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY
+  if (!key) return null
+  const { createClient } = await import('@supabase/supabase-js')
+  return createClient(process.env.SUPABASE_URL, key)
+}
+
+async function userOwnsAgent(userId, agentId) {
+  if (isDevAuthBypass()) return true
+  if (!userId || !agentId) return false
+  try {
+    const supabase = await getSupabaseAdmin()
+    if (!supabase) return false
+    const { data } = await supabase
+      .from('user_agents')
+      .select('agent_id')
+      .eq('user_id', userId)
+      .eq('agent_id', agentId)
+      .maybeSingle()
+    return !!data
+  } catch (e) {
+    log('userOwnsAgent error: ' + e.message)
+    return false
+  }
+}
+
+async function userOwnsCallSid(userId, callSid) {
+  if (isDevAuthBypass()) return true
+  if (!userId || !callSid) return false
+  try {
+    const supabase = await getSupabaseAdmin()
+    if (!supabase) return false
+    // Match either the stored conversation/call id or the call_sid we stash
+    // in metadata when an outbound call is first initiated.
+    const { data } = await supabase
+      .from('calls')
+      .select('id')
+      .eq('user_id', userId)
+      .or('call_id.eq.' + callSid + ',metadata->>call_sid.eq.' + callSid)
+      .maybeSingle()
+    return !!data
+  } catch (e) {
+    log('userOwnsCallSid error: ' + e.message)
+    return false
+  }
+}
+
+async function persistOutboundCall(userId, { agentId, toNumber, agentName, elResponse }) {
+  if (isDevAuthBypass()) return
+  if (!userId) return
+  try {
+    const supabase = await getSupabaseAdmin()
+    if (!supabase) return
+    const callSid = elResponse?.callSid || elResponse?.call_sid || null
+    const conversationId = elResponse?.conversation_id || elResponse?.conversationId || null
+    const { error } = await supabase.from('calls').insert({
+      user_id: userId,
+      call_id: conversationId,
+      to_number: toNumber || null,
+      agent_id: agentId || null,
+      agent_name: agentName || null,
+      status: 'initiated',
+      direction: 'outbound',
+      timestamp: new Date().toISOString(),
+      metadata: { call_sid: callSid, conversation_id: conversationId },
+    })
+    if (error) log('persistOutboundCall: ' + error.message)
+  } catch (e) {
+    log('persistOutboundCall error: ' + e.message)
+  }
+}
+
+const E164 = /^\+[1-9]\d{6,14}$/
 
 // Upgrade handler -- verify Supabase JWT before accepting WS
 
@@ -398,9 +485,18 @@ app.patch('/api/el/phone-numbers/:id', async (req, res) => {
 })
 
 // Initiate outbound call
-app.post('/api/el/call', idempotent, async (req, res) => {
+// SEC-002: requireAuth + agent-ownership check before dialing on the
+// platform Twilio number. Persist the call so /api/transfer can verify
+// ownership of the resulting CallSid.
+app.post('/api/el/call', requireAuth, idempotent, async (req, res) => {
   const { agentId, toNumber, fromNumberId } = req.body
   if (!agentId || !toNumber) return res.status(400).json({ error: 'agentId and toNumber required' })
+  if (!E164.test(toNumber)) {
+    return res.status(400).json({ error: 'toNumber must be E.164 (e.g. +15551234567)' })
+  }
+  if (!(await userOwnsAgent(req.user.id, agentId))) {
+    return res.status(403).json({ error: 'Agent not owned by this user' })
+  }
   const body = {
     agent_id: agentId,
     to: toNumber,
@@ -411,6 +507,7 @@ app.post('/api/el/call', idempotent, async (req, res) => {
     body: JSON.stringify(body),
   })
   if (!ok) return res.status(status).json({ error: data.detail || data.error || 'Call failed' })
+  persistOutboundCall(req.user.id, { agentId, toNumber, elResponse: data })
   res.json(data)
 })
 
@@ -477,9 +574,18 @@ app.get('/api/analytics', requireAuth, async (req, res) => {
 })
 
 // Live call transfer
-app.post('/api/transfer', idempotent, async (req, res) => {
+// SEC-003: requireAuth + ownership check on callSid. Without this an
+// attacker who guessed or observed a Twilio CallSid could splice
+// themselves into any in-progress call.
+app.post('/api/transfer', requireAuth, idempotent, async (req, res) => {
   const { callSid, transferTo } = req.body
   if (!callSid || !transferTo) return res.status(400).json({ error: 'callSid and transferTo required' })
+  if (!E164.test(transferTo)) {
+    return res.status(400).json({ error: 'transferTo must be E.164 (e.g. +15551234567)' })
+  }
+  if (!(await userOwnsCallSid(req.user.id, callSid))) {
+    return res.status(403).json({ error: 'Call not owned by this user' })
+  }
   try {
     const twilioSid = process.env.TWILIO_ACCOUNT_SID
     const twilioToken = process.env.TWILIO_AUTH_TOKEN
@@ -502,9 +608,16 @@ app.post('/api/transfer', idempotent, async (req, res) => {
 })
 
 // SMS send
-app.post('/api/sms/send', async (req, res) => {
+// SEC-004: requireAuth + smsLimiter prevent anonymous SMS blasts on the
+// platform Twilio number. Phone numbers must be E.164; message length is
+// capped at Twilio's segmented-message ceiling.
+app.post('/api/sms/send', requireAuth, smsLimiter, async (req, res) => {
   const { to, message } = req.body
   if (!to || !message) return res.status(400).json({ error: 'to and message required' })
+  if (!E164.test(to)) return res.status(400).json({ error: 'to must be E.164 (e.g. +15551234567)' })
+  if (typeof message !== 'string' || message.length > 1600) {
+    return res.status(400).json({ error: 'message must be a string of 1600 chars or fewer' })
+  }
   try {
     const twilioSid = process.env.TWILIO_ACCOUNT_SID
     const twilioToken = process.env.TWILIO_AUTH_TOKEN
