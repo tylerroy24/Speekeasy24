@@ -559,7 +559,7 @@ app.patch('/api/el/phone-numbers/:id', requireAuth, async (req, res) => {
 // SEC-002: requireAuth + agent-ownership check before dialing on the
 // platform Twilio number. Persist the call so /api/transfer can verify
 // ownership of the resulting CallSid.
-app.post('/api/el/call', requireAuth, idempotent, async (req, res) => {
+app.post('/api/el/call', requireAuth, callLimiter, idempotent, async (req, res) => {
   const { agentId, toNumber, fromNumberId } = req.body
   if (!agentId || !toNumber) return res.status(400).json({ error: 'agentId and toNumber required' })
   if (!E164.test(toNumber)) {
