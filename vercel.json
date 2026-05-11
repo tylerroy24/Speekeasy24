@@ -2,8 +2,8 @@
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
-  "installCommand": "npm install",
-  "framework": null,
+  "installCommand": "npm install --include=dev",
+  "framework": "vite",
   "functions": {
     "api/index.js": {
       "memory": 1024,
