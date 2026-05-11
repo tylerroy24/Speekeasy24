@@ -393,15 +393,11 @@ async function elFetch(path, opts = {}) {
   return { ok: res.ok, status: res.status, data }
 }
 
-// Get all agents
-app.get('/api/el/agents', async (req, res) => {
-  const { ok, status, data } = await elFetch('/convai/agents?page_size=100')
-  if (!ok) return res.status(status).json({ error: data.error || 'ElevenLabs error' })
-  res.json(data)
-})
+// SEC-005: The public GET /api/el/agents route is removed. It used to
+// list every agent across every tenant. Clients must use /api/el/agents/mine.
 
-// Create agent
-app.post('/api/el/agents', idempotent, async (req, res) => {
+// Create agent (auth required; ownership is recorded atomically on success)
+app.post('/api/el/agents', requireAuth, idempotent, async (req, res) => {
   const { name, voiceId, prompt, firstMessage } = req.body
   const body = {
     name,
@@ -419,13 +415,44 @@ app.post('/api/el/agents', idempotent, async (req, res) => {
     body: JSON.stringify(body),
   })
   if (!ok) return res.status(status).json({ error: data.detail || data.error || 'Failed to create agent' })
+  // Record ownership so this user (and only this user) sees the new agent.
+  if (data?.agent_id && !isDevAuthBypass()) {
+    try {
+      const supabase = await getSupabaseAdmin()
+      if (supabase) {
+        await supabase.from('user_agents').upsert(
+          { user_id: req.user.id, agent_id: data.agent_id, agent_name: name || data.agent_id },
+          { onConflict: 'user_id,agent_id' }
+        )
+      }
+    } catch (e) {
+      log('user_agents upsert on create failed: ' + e.message)
+    }
+  }
   res.json(data)
 })
 
-// Delete agent
-app.delete('/api/el/agents/:id', async (req, res) => {
-  const { ok, status, data } = await elFetch('/convai/agents/' + req.params.id, { method: 'DELETE' })
+// Delete agent (auth + ownership)
+app.delete('/api/el/agents/:id', requireAuth, async (req, res) => {
+  const agentId = req.params.id
+  if (!(await userOwnsAgent(req.user.id, agentId))) {
+    return res.status(403).json({ error: 'Agent not owned by this user' })
+  }
+  const { ok, status, data } = await elFetch('/convai/agents/' + agentId, { method: 'DELETE' })
   if (!ok) return res.status(status).json({ error: data.error || 'Failed to delete agent' })
+  if (!isDevAuthBypass()) {
+    try {
+      const supabase = await getSupabaseAdmin()
+      if (supabase) {
+        await supabase.from('user_agents')
+          .delete()
+          .eq('user_id', req.user.id)
+          .eq('agent_id', agentId)
+      }
+    } catch (e) {
+      log('user_agents delete failed: ' + e.message)
+    }
+  }
   res.json({ ok: true })
 })
 
@@ -458,23 +485,27 @@ app.get('/api/el/agents/mine', requireAuth, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }) }
 })
 
-// Get voices
-app.get('/api/el/voices', async (_req, res) => {
+// Get voices (auth-gated; no per-tenant filter needed but not public)
+app.get('/api/el/voices', requireAuth, async (_req, res) => {
   const { ok, status, data } = await elFetch('/voices')
   if (!ok) return res.status(status).json({ error: data.error || 'Failed to get voices' })
   res.json(data)
 })
 
-// Get phone numbers
-app.get('/api/el/phone-numbers', async (_req, res) => {
+// Get phone numbers (auth-gated; cross-tenant filtering will require a
+// per-user phone-number ownership table -- tracked as a separate item)
+app.get('/api/el/phone-numbers', requireAuth, async (_req, res) => {
   const { ok, status, data } = await elFetch('/convai/phone-numbers')
   if (!ok) return res.status(status).json({ error: data.error || 'Failed to get phone numbers' })
   res.json(data)
 })
 
-// Assign inbound agent to phone number
-app.patch('/api/el/phone-numbers/:id', async (req, res) => {
+// Assign inbound agent to phone number (auth + agent ownership)
+app.patch('/api/el/phone-numbers/:id', requireAuth, async (req, res) => {
   const { agentId } = req.body
+  if (agentId && !(await userOwnsAgent(req.user.id, agentId))) {
+    return res.status(403).json({ error: 'Agent not owned by this user' })
+  }
   const body = agentId ? { agent_id: agentId } : { agent_id: null }
   const { ok, status, data } = await elFetch('/convai/phone-numbers/' + req.params.id, {
     method: 'PATCH',
@@ -511,8 +542,8 @@ app.post('/api/el/call', requireAuth, idempotent, async (req, res) => {
   res.json(data)
 })
 
-// Get conversations
-app.get('/api/el/conversations', async (req, res) => {
+// Get conversations (auth-gated; cross-tenant filtering tracked separately)
+app.get('/api/el/conversations', requireAuth, async (req, res) => {
   const days = Math.min(365, Math.max(1, parseInt(req.query.days || '7')))
   const { ok, status, data } = await elFetch('/convai/conversations?page_size=100')
   if (!ok) return res.status(status).json({ error: data.error || 'Failed to get conversations' })

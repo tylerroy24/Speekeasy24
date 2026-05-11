@@ -31,14 +31,10 @@ export function useElevenLabs(token) {
   const getVoices = () => call('/voices')
 
   const getAgents = async () => {
-    try {
-      const data = await call('/agents/mine')
-      return data.agents || []
-    } catch {
-      // fallback to all agents in dev
-      const data = await call('/agents')
-      return data.agents || []
-    }
+    // SEC-005: public GET /api/el/agents no longer exists. Always go
+    // through /agents/mine so we only see the caller's own agents.
+    const data = await call('/agents/mine')
+    return data.agents || []
   }
 
   const getPhoneNumbers = async () => {
