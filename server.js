@@ -61,7 +61,12 @@ app.use(cors({
   credentials: true,
 }))
 
-app.use(express.json({ limit: '1mb' })) // Limit body size
+// Capture raw body during JSON parsing so webhook signature verifiers can
+// hash the exact bytes the sender signed.
+app.use(express.json({
+  limit: '1mb',
+  verify: (req, _res, buf) => { req.rawBody = buf.toString('utf8') },
+}))
 app.use(express.urlencoded({ extended: true, limit: '1mb' }))
 
 // ── Compression ────────────────────────────────────────────────
@@ -672,8 +677,84 @@ app.post('/api/contact', contactLimiter, async (req, res) => {
   }
 })
 
+// ── Webhook signature verifiers ────────────────────────────────
+// SEC-001: Verify HMAC signatures on incoming webhooks before trusting
+// the payload. Fail closed in production; in dev, accept unsigned only
+// when the relevant secret is unset (so a fresh dev box still works).
+
+function verifyElevenLabsSignature(req) {
+  const secret = process.env.ELEVENLABS_WEBHOOK_SECRET
+  if (!secret) {
+    if (IS_PROD) {
+      log('ElevenLabs webhook: ELEVENLABS_WEBHOOK_SECRET unset in production -- rejecting')
+      return false
+    }
+    log('ElevenLabs webhook: ELEVENLABS_WEBHOOK_SECRET unset in dev -- accepting unsigned (dev only)')
+    return true
+  }
+  const header = req.headers['elevenlabs-signature'] || ''
+  // Header format: "t=<unix_seconds>,v0=<hex_hmac_sha256>"
+  const parts = Object.fromEntries(
+    header.split(',').map(p => p.trim().split('=')).filter(p => p.length === 2)
+  )
+  const ts = parts.t
+  const sig = parts.v0
+  if (!ts || !sig) return false
+  // Reject anything older than 30 minutes to defeat replay attacks
+  const tsNum = parseInt(ts, 10)
+  if (!Number.isFinite(tsNum)) return false
+  const ageSeconds = Math.abs(Math.floor(Date.now() / 1000) - tsNum)
+  if (ageSeconds > 30 * 60) {
+    log('ElevenLabs webhook: signature timestamp out of range (' + ageSeconds + 's)')
+    return false
+  }
+  const body = req.rawBody || (req.body ? JSON.stringify(req.body) : '')
+  const expected = createHmac('sha256', secret).update(ts + '.' + body).digest('hex')
+  try {
+    const a = Buffer.from(sig, 'hex')
+    const b = Buffer.from(expected, 'hex')
+    if (a.length !== b.length) return false
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
+
+function verifyTwilioSignature(req) {
+  const token = process.env.TWILIO_AUTH_TOKEN
+  if (!token) {
+    if (IS_PROD) {
+      log('Twilio webhook: TWILIO_AUTH_TOKEN unset in production -- rejecting')
+      return false
+    }
+    log('Twilio webhook: TWILIO_AUTH_TOKEN unset in dev -- accepting unsigned (dev only)')
+    return true
+  }
+  const sig = req.headers['x-twilio-signature']
+  if (!sig) return false
+  // Canonical URL: scheme + host + originalUrl (must match what Twilio used
+  // to compute the signature on its side; honor x-forwarded-* from the proxy).
+  const proto = req.headers['x-forwarded-proto'] || req.protocol
+  const host = req.headers['x-forwarded-host'] || req.get('host')
+  const url = proto + '://' + host + req.originalUrl
+  // Append form params, sorted alphabetically by key, as key+value with no separator.
+  const params = req.body || {}
+  const sorted = Object.keys(params).sort()
+  let data = url
+  for (const k of sorted) data += k + String(params[k] ?? '')
+  const expected = createHmac('sha1', token).update(data).digest('base64')
+  try {
+    const a = Buffer.from(sig, 'utf8')
+    const b = Buffer.from(expected, 'utf8')
+    if (a.length !== b.length) return false
+    return timingSafeEqual(a, b)
+  } catch {
+    return false
+  }
+}
+
 // ── Webhooks ───────────────────────────────────────────────────
-// FIX #2: Signature verification on both webhooks
+// SEC-001: Signature verification on both webhooks.
 
 app.post('/webhooks/elevenlabs', (req, res) => {
   // FIX: Verify ElevenLabs signature
