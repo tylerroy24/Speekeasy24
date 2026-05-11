@@ -182,9 +182,18 @@ function idempotent(req, res, next) {
 
 
 // ── Auth middleware ────────────────────────────────────────────
+// SEC-007: Auth bypass is an explicit opt-in, not a side effect of
+// NODE_ENV. Set SKEAUTH_DEV_BYPASS=1 in local development to skip
+// Supabase entirely; any other environment requires a valid JWT.
+function isDevAuthBypass() {
+  return process.env.SKEAUTH_DEV_BYPASS === '1'
+}
+
 async function requireAuth(req, res, next) {
-  // In dev, skip auth so local testing works without Supabase
-  if (process.env.NODE_ENV !== 'production') return next()
+  if (isDevAuthBypass()) {
+    req.user = { id: 'dev-bypass', email: 'dev@localhost' }
+    return next()
+  }
   const token = req.headers.authorization?.replace('Bearer ', '')
   if (!token) return res.status(401).json({ error: 'Unauthorized' })
   try {
@@ -223,12 +232,12 @@ app.get('/api/events', (_req, res) => {
 const crmWebhooks = new Map()
 
 app.get('/api/crm/webhooks', requireAuth, (req, res) => {
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
   res.json({ webhooks: crmWebhooks.get(userId) || [] })
 })
 
 app.post('/api/crm/webhooks', requireAuth, (req, res) => {
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
   const { name, url, events, headers: customHeaders } = req.body
   if (!name || !url) return res.status(400).json({ error: 'name and url required' })
 
@@ -248,7 +257,7 @@ app.post('/api/crm/webhooks', requireAuth, (req, res) => {
 })
 
 app.delete('/api/crm/webhooks/:id', requireAuth, (req, res) => {
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
   const hooks = (crmWebhooks.get(userId) || []).filter(h => h.id !== req.params.id)
   crmWebhooks.set(userId, hooks)
   res.json({ ok: true })
@@ -335,7 +344,7 @@ app.delete('/api/el/agents/:id', async (req, res) => {
 
 // Register agent ownership for a user
 app.post('/api/el/agents/:id/register', requireAuth, async (req, res) => {
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
   const { name } = req.body
   try {
     const { createClient } = await import('@supabase/supabase-js')
@@ -349,7 +358,7 @@ app.post('/api/el/agents/:id/register', requireAuth, async (req, res) => {
 
 // Get only this user's agents
 app.get('/api/el/agents/mine', requireAuth, async (req, res) => {
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
   try {
     const { createClient } = await import('@supabase/supabase-js')
     const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_ANON_KEY)
@@ -416,7 +425,7 @@ app.get('/api/el/conversations', async (req, res) => {
 // Get analytics — filtered to the authenticated user's calls via Supabase
 app.get('/api/analytics', requireAuth, async (req, res) => {
   const days = Math.min(365, Math.max(1, parseInt(req.query.days || '7')))
-  const userId = req.user?.id || 'dev'
+  const userId = req.user.id
 
   try {
     const { createClient } = await import('@supabase/supabase-js')
