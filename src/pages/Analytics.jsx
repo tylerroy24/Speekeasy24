@@ -81,7 +81,7 @@ function MiniBarChart({ data }) {
 export default function Analytics() {
   useSEO({ title: 'Analytics', description: 'Call analytics, sentiment, and performance metrics.', noIndex: true })
 
-  const { user } = useAuth()
+  const { user, getToken } = useAuth()
   const [analytics, setAnalytics] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -122,7 +122,7 @@ export default function Analytics() {
     setLoading(true)
     setError('')
     try {
-      const token = user?.access_token || null
+      const token = await getToken()
       const headers = token ? { Authorization: 'Bearer ' + token } : {}
       const res = await fetch('/api/analytics?days=' + period, { headers })
       if (!res.ok) {

@@ -49,7 +49,7 @@ export default function Settings() {
     weeklyReport: false,
   })
 
-  const el = useElevenLabs(elKey)
+  const el = useElevenLabs()
 
   const [keyError, setKeyError] = useState('')
 

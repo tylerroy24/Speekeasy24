@@ -18,15 +18,18 @@ if (IS_PROD && !SUPABASE_CONFIGURED) {
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
+  const [session, setSession] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (SUPABASE_CONFIGURED) {
       supabase.auth.getSession().then(({ data: { session } }) => {
+        setSession(session ?? null)
         setUser(session?.user ?? null)
         setLoading(false)
       })
       const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+        setSession(session ?? null)
         setUser(session?.user ?? null)
         setLoading(false)
       })
@@ -39,6 +42,19 @@ export function AuthProvider({ children }) {
       setLoading(false)
     }
   }, [])
+
+  // BUG-002: always read the live session from the SDK rather than trusting
+  // state, so callers get a fresh token across silent refreshes. Returns
+  // null when Supabase is not configured (dev fallback paths).
+  const getToken = async () => {
+    if (!SUPABASE_CONFIGURED) return null
+    try {
+      const { data } = await supabase.auth.getSession()
+      return data?.session?.access_token || null
+    } catch {
+      return null
+    }
+  }
 
   const register = async ({ name, email, password }) => {
     if (SUPABASE_CONFIGURED) {
@@ -107,7 +123,8 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={{
-      user, loading, register, login, logout, updateUser, resetPassword,
+      user, session, loading, register, login, logout, updateUser, resetPassword,
+      getToken,
       userEmail, userName, isSupabase: SUPABASE_CONFIGURED,
     }}>
       {children}

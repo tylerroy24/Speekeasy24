@@ -126,7 +126,7 @@ function WebhookCard({ hook, onDelete, onTest }) {
 export default function Integrations() {
   useSEO({ title: 'Integrations', description: 'Connect Speekeasy to your CRM and business tools.', noIndex: true })
 
-  const { user } = useAuth()
+  const { user, getToken } = useAuth()
   const [webhooks, setWebhooks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
@@ -137,8 +137,8 @@ export default function Integrations() {
 
   useEffect(() => { loadWebhooks() }, [])
 
-  const getHeaders = () => {
-    const token = user?.access_token || null
+  const getHeaders = async () => {
+    const token = await getToken()
     const h = { 'Content-Type': 'application/json' }
     if (token) h['Authorization'] = 'Bearer ' + token
     return h
@@ -147,7 +147,7 @@ export default function Integrations() {
   const loadWebhooks = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/crm/webhooks', { headers: getHeaders() })
+      const res = await fetch('/api/crm/webhooks', { headers: await getHeaders() })
       const data = await res.json()
       setWebhooks(data.webhooks || [])
     } catch (err) {
@@ -177,7 +177,7 @@ export default function Integrations() {
 
       const res = await fetch('/api/crm/webhooks', {
         method: 'POST',
-        headers: getHeaders(),
+        headers: await getHeaders(),
         body: JSON.stringify({
           name: form.name,
           url: form.url,
@@ -202,7 +202,7 @@ export default function Integrations() {
   const deleteWebhook = async (id) => {
     if (!window.confirm('Remove this webhook?')) return
     try {
-      await fetch('/api/crm/webhooks/' + id, { method: 'DELETE', headers: getHeaders() })
+      await fetch('/api/crm/webhooks/' + id, { method: 'DELETE', headers: await getHeaders() })
       setWebhooks(prev => prev.filter(h => h.id !== id))
     } catch (err) {
       setError(err.message)

@@ -18,7 +18,7 @@ export default function Agents() {
   useSEO({ title: "AI Agents", description: "Create and manage your AI voice agents.", noIndex: true })
 
   const [settings] = useState(storage.getSettings())
-  const el = useElevenLabs(settings.elevenLabsKey)
+  const el = useElevenLabs()
 
   const [agents, setAgents] = useState([])
   const [voices, setVoices] = useState([])

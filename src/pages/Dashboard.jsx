@@ -275,7 +275,10 @@ function InboundPanel({ phoneNumbers, agents }) {
 // ── Main Dashboard ─────────────────────────────────────────
 export default function Dashboard() {
   const [settings, setSettings] = useState(storage.getSettings())
-  const el = useElevenLabs(settings.elevenLabsKey)
+  // BUG-002: useElevenLabs now resolves the Supabase JWT internally. The
+  // settings.elevenLabsKey value is a vestigial UI hint only -- the real
+  // ElevenLabs key lives server-side in ELEVENLABS_API_KEY.
+  const el = useElevenLabs()
   const hasKey = !!settings.elevenLabsKey
 
   const [agents, setAgents] = useState([])

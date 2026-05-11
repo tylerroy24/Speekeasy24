@@ -91,8 +91,7 @@ export default function Inbound() {
   useSEO({ title: "Inbound Calls", description: "Configure inbound call routing for your AI agents.", noIndex: true })
 
   const { user } = useAuth()
-  const token = user?.access_token || null
-  const el = useElevenLabs(token)
+  const el = useElevenLabs()
   const hasKey = true
 
   const [phoneNumbers, setPhoneNumbers] = useState([])

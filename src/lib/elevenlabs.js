@@ -1,17 +1,33 @@
 // ElevenLabs API - all calls go through our backend proxy
 // The ElevenLabs API key is stored server-side only (ELEVENLABS_API_KEY env var)
 // This file never holds or exposes the API key
+import { supabase } from './supabase'
 
 const API_BASE = '/api/el'
 
-async function req(path, opts = {}, token) {
+// BUG-002: resolve the Supabase JWT live on every request. Trusting a
+// token captured at hook-mount time produces 401s after silent refreshes,
+// and several call sites used to hand in the ElevenLabs UI key instead
+// of a JWT entirely. Going through supabase.auth.getSession() fixes both.
+async function getAuthHeader() {
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data?.session?.access_token
+    return token ? { Authorization: 'Bearer ' + token } : {}
+  } catch {
+    return {}
+  }
+}
+
+async function req(path, opts = {}) {
+  const authHeader = await getAuthHeader()
   const headers = {
     'Content-Type': 'application/json',
+    ...authHeader,
+    ...(opts.headers || {}),
   }
-  // Attach Supabase JWT for authenticated routes
-  if (token) headers['Authorization'] = 'Bearer ' + token
 
-  const res = await fetch(API_BASE + path, { headers, ...opts })
+  const res = await fetch(API_BASE + path, { ...opts, headers })
 
   if (res.status === 204) return true
 
@@ -22,11 +38,8 @@ async function req(path, opts = {}, token) {
   return data
 }
 
-export function useElevenLabs(token) {
-  // token = Supabase JWT, passed from auth context
-  // In dev mode, token can be null and auth is skipped server-side
-
-  const call = (path, opts) => req(path, opts, token)
+export function useElevenLabs() {
+  const call = (path, opts) => req(path, opts)
 
   const getVoices = () => call('/voices')
 
@@ -96,9 +109,8 @@ export function useElevenLabs(token) {
   // Validate by trying to fetch voices through the proxy
   const validateKey = async () => {
     try {
-      const res = await fetch('/api/el/voices', {
-        headers: token ? { Authorization: 'Bearer ' + token } : {},
-      })
+      const headers = await getAuthHeader()
+      const res = await fetch('/api/el/voices', { headers })
       if (res.ok) return { valid: true }
       const body = await res.json().catch(() => ({}))
       return { valid: false, error: body.error || 'HTTP ' + res.status }
