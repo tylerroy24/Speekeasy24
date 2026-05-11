@@ -27,11 +27,16 @@ const ENV_ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGIN || '')
   .map(s => s.trim())
   .filter(Boolean)
 const DEV_ALLOWED_ORIGINS = IS_PROD ? [] : ['http://localhost:5173']
-const ALLOWED_ORIGINS = new Set([
-  ...DEFAULT_PROD_ORIGINS,
-  ...ENV_ALLOWED_ORIGINS,
-  ...DEV_ALLOWED_ORIGINS,
-])
+// Normalize to lowercase so case differences in env config or non-browser
+// clients do not cause spurious 403s. Browsers send Origin lowercased per
+// the URL spec, but RFC 6454 does not strictly require that.
+const ALLOWED_ORIGINS = new Set(
+  [
+    ...DEFAULT_PROD_ORIGINS,
+    ...ENV_ALLOWED_ORIGINS,
+    ...DEV_ALLOWED_ORIGINS,
+  ].map(o => o.toLowerCase())
+)
 const WORKER_ID = process.env.WORKER_ID || process.pid
 
 // ── Trust proxy (required for load balancers) ──────────────────
@@ -69,11 +74,12 @@ app.use(cors({
   origin: (origin, callback) => {
     if (!origin) return callback(null, true)
     if (!IS_PROD) return callback(null, true)
-    if (ALLOWED_ORIGINS.has(origin)) return callback(null, true)
+    const norm = origin.toLowerCase()
+    if (ALLOWED_ORIGINS.has(norm)) return callback(null, true)
     // Allow any *.vercel.app preview deployment so PR previews can hit
     // the same backend without per-PR env-var changes.
     try {
-      const host = new URL(origin).hostname
+      const host = new URL(norm).hostname
       if (host.endsWith('.vercel.app')) return callback(null, true)
     } catch {}
     log('CORS blocked: ' + origin)
